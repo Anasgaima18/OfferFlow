@@ -230,8 +230,7 @@ OfferFlow/
 │   │   │   ├── AuthContext.ts       # Auth context definition
 │   │   │   └── AuthProvider.tsx     # Auth state provider
 │   │   ├── hooks/
-│   │   │   ├── useAuth.ts           # Authentication hook
-│   │   │   └── useAudioRecorder.ts  # Microphone capture hook
+│   │   │   └── useAuth.ts           # Authentication hook
 │   │   ├── pages/                   # Route-level page components
 │   │   │   ├── Landing.tsx          # Marketing landing page
 │   │   │   ├── Dashboard.tsx        # User dashboard

@@ -98,8 +98,7 @@ client/
 │   │   └── AuthProvider.tsx         # JWT auth state provider
 │   │
 │   ├── hooks/
-│   │   ├── useAuth.ts               # Auth context consumer hook
-│   │   └── useAudioRecorder.ts      # Microphone capture & streaming
+│   │   └── useAuth.ts               # Auth context consumer hook
 │   │
 │   ├── pages/                       # Route-level components
 │   │   ├── Landing.tsx              # Marketing page

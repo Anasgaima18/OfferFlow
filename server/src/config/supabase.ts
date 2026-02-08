@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Logger } from '../utils/logger';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -23,4 +24,4 @@ export const supabaseAdmin: SupabaseClient = createClient(supabaseUrl, supabaseS
 // Client for user-context operations (respects RLS)
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-console.log('[supabase]: Supabase client initialized');
+Logger.info('[supabase]: Supabase client initialized');

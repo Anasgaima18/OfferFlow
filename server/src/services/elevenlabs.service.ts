@@ -38,7 +38,7 @@ export class ElevenLabsService {
   constructor() {
     this.apiKey = process.env.ELEVENLABS_API_KEY || '';
     if (!this.apiKey) {
-      console.warn('[ElevenLabsService]: No API Key provided. TTS will fail.');
+      Logger.warn('[ElevenLabsService]: No API Key provided. TTS will fail.');
     }
   }
 
@@ -74,7 +74,7 @@ export class ElevenLabsService {
 
       return response.data;
     } catch (error: any) {
-      console.error('ElevenLabs TTS Error:', error?.response?.data || error.message);
+      Logger.error(`ElevenLabs TTS Error: ${error?.response?.data || error.message}`);
       throw new AppError('Failed to generate speech with ElevenLabs', 500);
     }
   }

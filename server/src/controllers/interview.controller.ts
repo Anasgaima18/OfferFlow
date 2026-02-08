@@ -43,6 +43,11 @@ export class InterviewController {
             return next(new AppError('No interview found with that ID', 404));
         }
 
+        // Authorization: verify ownership
+        if (interview.user_id !== req.user!.id) {
+            return next(new AppError('You do not have permission to access this interview', 403));
+        }
+
         res.status(200).json({
             success: true,
             data: { interview }
@@ -51,6 +56,15 @@ export class InterviewController {
 
     // Update interview (score, feedback, status)
     updateInterview = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        // Authorization: verify ownership before update
+        const existing = await interviewService.getInterviewById(req.params.id as string);
+        if (!existing) {
+            return next(new AppError('No interview found with that ID', 404));
+        }
+        if (existing.user_id !== req.user!.id) {
+            return next(new AppError('You do not have permission to modify this interview', 403));
+        }
+
         const { score, feedback, status } = req.body;
 
         const interview = await interviewService.updateInterview(req.params.id as string, {
@@ -96,6 +110,11 @@ export class InterviewController {
             return next(new AppError('No interview found with that ID', 404));
         }
 
+        // Authorization: verify ownership
+        if (interview.user_id !== req.user!.id) {
+            return next(new AppError('You do not have permission to access this interview', 403));
+        }
+
         const feedback = await feedbackService.generateFeedback(interviewId);
 
         res.status(200).json({
@@ -107,6 +126,16 @@ export class InterviewController {
     // Get transcript for an interview
     getTranscript = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
+
+        // Authorization: verify ownership
+        const interview = await interviewService.getInterviewById(interviewId);
+        if (!interview) {
+            return next(new AppError('No interview found with that ID', 404));
+        }
+        if (interview.user_id !== req.user!.id) {
+            return next(new AppError('You do not have permission to access this interview', 403));
+        }
+
         const transcript = await interviewService.getTranscript(interviewId);
 
         res.status(200).json({

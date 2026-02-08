@@ -30,7 +30,7 @@ export class AuthService {
                 password: hashedPassword,
                 avatar: userData.avatar || null,
             })
-            .select()
+            .select('id, email, name, avatar, created_at, updated_at')
             .single();
 
         if (error || !user) {
@@ -90,7 +90,7 @@ export class AuthService {
             throw new AppError('Server configuration error: JWT_SECRET is not set', 500);
         }
         return jwt.sign({ id }, process.env.JWT_SECRET, {
-            expiresIn: '90d',
+            expiresIn: '7d',
         });
     }
 }

@@ -2,6 +2,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import WebSocket from 'ws';
 import { AppError } from '../utils/appError';
+import { Logger } from '../utils/logger';
 
 export class SarvamService {
   private apiKey: string;
@@ -10,7 +11,7 @@ export class SarvamService {
   constructor() {
     this.apiKey = process.env.SARVAM_API_KEY || '';
     if (!this.apiKey) {
-      console.warn('[SarvamService]: No API Key provided. Voice features will be mocked.');
+      Logger.warn('[SarvamService]: No API Key provided. Voice features will be mocked.');
     }
   }
 
@@ -53,7 +54,7 @@ export class SarvamService {
       );
       return response.data;
     } catch (error: any) {
-      console.error('Sarvam TTS Error:', error?.response?.data || error.message);
+      Logger.error(`Sarvam TTS Error: ${error?.response?.data || error.message}`);
       throw new AppError('Failed to generate speech with Sarvam AI', 500);
     }
   }
@@ -82,7 +83,7 @@ export class SarvamService {
 
       return response.data.choices[0].message.content;
     } catch (error: any) {
-      console.error('Sarvam Chat Error:', error?.response?.data || error.message);
+      Logger.error(`Sarvam Chat Error: ${error?.response?.data || error.message}`);
       throw new AppError('Failed to generate AI response', 500);
     }
   }
@@ -110,7 +111,7 @@ export class SarvamService {
     });
 
     ws.on('open', () => {
-      console.log('[Sarvam] WebSocket Connected');
+      Logger.info('[Sarvam] WebSocket Connected');
     });
 
     ws.on('message', (data: WebSocket.Data) => {
@@ -127,21 +128,21 @@ export class SarvamService {
             }
             // Server error: { type: 'error', data: { error, code } }
             else if (parsed.type === 'error' && parsed.data) {
-                console.error('[Sarvam] Server error:', parsed.data);
+                Logger.error('[Sarvam] Server error:', parsed.data);
                 onError(new Error(parsed.data.error || 'Sarvam STT error'));
             }
         } catch (e) {
-            console.error('[Sarvam] Failed to parse message:', e);
+            Logger.error('[Sarvam] Failed to parse message:', e);
         }
     });
 
     ws.on('error', (error: Error) => {
-      console.error('[Sarvam] WebSocket Error:', error);
+      Logger.error('[Sarvam] WebSocket Error:', error);
       onError(error);
     });
 
     ws.on('close', (code: number, reason: Buffer) => {
-        console.log(`[Sarvam] WebSocket Closed: ${code} - ${reason.toString()}`);
+        Logger.info(`[Sarvam] WebSocket Closed: ${code} - ${reason.toString()}`);
     });
 
     return ws;

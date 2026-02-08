@@ -133,13 +133,15 @@ export class InterviewService {
         const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
         // Calculate rank by counting distinct users with higher average scores
+        // NOTE: Ideally use SQL aggregation (GROUP BY + AVG) via Supabase RPC for production scale
         let rank = 1;
         if (averageScore > 0) {
             const { data: allUserInterviews } = await supabaseAdmin
                 .from('interviews')
                 .select('user_id, score')
                 .eq('status', 'completed')
-                .not('score', 'is', null);
+                .not('score', 'is', null)
+                .limit(5000);
 
             if (allUserInterviews && allUserInterviews.length > 0) {
                 // Group by user and compute average scores
@@ -177,11 +179,13 @@ export class InterviewService {
         averageScore: number;
     }>> {
         // Get all completed interviews with user info
+        // NOTE: Ideally use SQL aggregation via Supabase RPC for production scale
         const { data, error } = await supabaseAdmin
             .from('interviews')
             .select('user_id, score, users!inner(name, avatar)')
             .eq('status', 'completed')
-            .not('score', 'is', null);
+            .not('score', 'is', null)
+            .limit(5000);
 
         if (error) {
             throw new AppError(error.message, 500);

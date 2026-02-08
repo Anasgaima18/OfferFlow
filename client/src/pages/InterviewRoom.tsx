@@ -11,7 +11,7 @@ import { IInterview } from '../types';
 import env from '../config/env';
 
 interface WSMessage {
-    type?: 'error' | 'ai_thinking' | 'ai_done' | 'pong' | 'stt_reconnecting';
+    type?: 'error' | 'ai_thinking' | 'ai_done' | 'pong' | 'stt_reconnecting' | 'auth_success';
     message?: string;
     transcript?: string;
     audio?: string;
@@ -248,18 +248,25 @@ const InterviewRoom: React.FC = () => {
         }
 
         setConnectionStatus('connecting');
-        const ws = new WebSocket(`${wsUrl}?token=${encodeURIComponent(token)}&interviewId=${encodeURIComponent(id || '')}`);
+        const ws = new WebSocket(`${wsUrl}?interviewId=${encodeURIComponent(id || '')}`);
         wsRef.current = ws;
 
-        ws.onopen = async () => {
-            setConnectionStatus('connected');
-            if (!timerActive) setTimerActive(true);
-            await startAudioCapture();
+        ws.onopen = () => {
+            // Send auth token as first message (not in URL to prevent logging/exposure)
+            ws.send(JSON.stringify({ type: 'auth', token }));
         };
 
         ws.onmessage = async (event) => {
             try {
                 const data = JSON.parse(event.data) as WSMessage;
+
+                // Handle auth success — start session after server confirms auth
+                if (data.type === 'auth_success') {
+                    setConnectionStatus('connected');
+                    if (!timerActive) setTimerActive(true);
+                    await startAudioCapture();
+                    return;
+                }
 
                 // F3: Handle AI thinking state
                 if (data.type === 'ai_thinking') {

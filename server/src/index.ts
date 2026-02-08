@@ -124,6 +124,8 @@ const wss = new WebSocketServer({ server, path: '/api/v1/interviews/ws' });
 const MAX_CONVERSATION_HISTORY = 20;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const SARVAM_MAX_RECONNECT = 3;
+const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // Sarah - natural conversational voice
+const WS_AUTH_TIMEOUT_MS = 10_000;
 
 // --- B1: Dynamic system prompts per interview type ---
 function getSystemPrompt(interviewType: string): string {
@@ -147,17 +149,34 @@ function getSystemPrompt(interviewType: string): string {
 wss.on('connection', async (ws, req) => {
     Logger.info('Client attempting to connect to Interview Room');
 
-    // --- Authentication ---
-    let userId: string | null = null;
-    let interviewId: string | null = null;
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const interviewId = url.searchParams.get('interviewId');
+
+    // --- First-message authentication (token NOT in URL to prevent logging/exposure) ---
+    const authTimeout = setTimeout(() => {
+        ws.send(JSON.stringify({ type: 'error', message: 'Authentication timeout — send { type: "auth", token: "..." } within 10s' }));
+        ws.close(4001, 'Auth timeout');
+    }, WS_AUTH_TIMEOUT_MS);
+
+    const authMessage = await new Promise<string | null>((resolve) => {
+        ws.once('message', (msg) => {
+            clearTimeout(authTimeout);
+            resolve(msg.toString());
+        });
+        ws.once('close', () => {
+            clearTimeout(authTimeout);
+            resolve(null);
+        });
+    });
+
+    if (!authMessage) return; // Client disconnected before auth
+
+    let userId: string;
 
     try {
-        const url = new URL(req.url || '', `http://${req.headers.host}`);
-        const token = url.searchParams.get('token');
-        interviewId = url.searchParams.get('interviewId');
-
-        if (!token) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Authentication required. Provide token query param.' }));
+        const authData = JSON.parse(authMessage);
+        if (authData.type !== 'auth' || !authData.token) {
+            ws.send(JSON.stringify({ type: 'error', message: 'First message must be { type: "auth", token: "..." }' }));
             ws.close(4001, 'Unauthorized');
             return;
         }
@@ -168,7 +187,7 @@ wss.on('connection', async (ws, req) => {
             return;
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: string };
+        const decoded = jwt.verify(authData.token, process.env.JWT_SECRET) as { id: string };
         userId = decoded.id;
         Logger.info(`WebSocket authenticated for user: ${userId}, interview: ${interviewId}`);
     } catch (err) {
@@ -178,12 +197,20 @@ wss.on('connection', async (ws, req) => {
         return;
     }
 
+    ws.send(JSON.stringify({ type: 'auth_success' }));
+
     // --- B1: Load interview record and build dynamic system prompt ---
     let interviewType = 'technical';
     if (interviewId) {
         try {
             const interviewRecord = await interviewService.getInterviewById(interviewId);
             if (interviewRecord) {
+                // Authorization: verify interview belongs to authenticated user
+                if (interviewRecord.user_id !== userId) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Forbidden: interview does not belong to you' }));
+                    ws.close(4003, 'Forbidden');
+                    return;
+                }
                 interviewType = interviewRecord.type;
             }
             await interviewService.updateInterview(interviewId, { status: 'in-progress' });
@@ -249,7 +276,7 @@ wss.on('connection', async (ws, req) => {
             const audioChunks: Buffer[] = [];
 
             ttsStream = elevenLabsService.createStreamingTTS(
-                'EXAVITQu4vr4xnSDxMaL',
+                DEFAULT_VOICE_ID,
                 (chunk) => {
                     audioChunks.push(chunk);
                 },

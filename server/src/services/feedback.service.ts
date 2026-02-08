@@ -54,7 +54,7 @@ export class FeedbackService {
             const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]) as FeedbackResult;
-                // Update interview with score
+                // Update interview with AI-generated score
                 await interviewService.updateInterview(interviewId, {
                     score: parsed.overallScore,
                     feedback: parsed.summary,
@@ -66,29 +66,26 @@ export class FeedbackService {
             Logger.error('Failed to generate AI feedback, using default', err);
         }
 
+        // Return default feedback but do NOT save fake scores to the database
         return this.getDefaultFeedback();
     }
 
     private getDefaultFeedback(): FeedbackResult {
         return {
-            overallScore: 70,
+            overallScore: 0,
             categories: [
-                { name: 'Problem Solving', score: 72, feedback: 'Demonstrated reasonable problem-solving approach.' },
-                { name: 'Communication', score: 68, feedback: 'Communication was adequate but could be more structured.' },
-                { name: 'Code Quality', score: 70, feedback: 'Code was functional but could benefit from better organization.' },
-                { name: 'Technical Knowledge', score: 70, feedback: 'Showed foundational technical understanding.' },
+                { name: 'Problem Solving', score: 0, feedback: 'Unable to evaluate — AI feedback generation failed.' },
+                { name: 'Communication', score: 0, feedback: 'Unable to evaluate — AI feedback generation failed.' },
+                { name: 'Code Quality', score: 0, feedback: 'Unable to evaluate — AI feedback generation failed.' },
+                { name: 'Technical Knowledge', score: 0, feedback: 'Unable to evaluate — AI feedback generation failed.' },
             ],
             strengths: [
-                'Completed the interview session',
-                'Engaged with the interviewer',
-                'Attempted the coding challenge'
+                'Completed the interview session'
             ],
             improvements: [
-                'Practice explaining your thought process aloud',
-                'Work on edge case identification',
-                'Consider time and space complexity in solutions'
+                'Feedback could not be generated automatically — please try again'
             ],
-            summary: 'The candidate completed the interview. Continue practicing to improve scores across all categories.'
+            summary: 'Automated feedback generation was unavailable. Please request feedback again or contact support.'
         };
     }
 }
