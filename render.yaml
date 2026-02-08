@@ -1,0 +1,59 @@
+# Render Blueprint — deploys server + client
+# Docs: https://docs.render.com/blueprint-spec
+
+services:
+  # ── Backend API (Web Service) ──────────────────────────
+  - type: web
+    name: offerflow-server
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: JWT_SECRET
+        sync: false          # Render will prompt you to fill this in
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: CLIENT_URL
+        sync: false          # Set to the static site URL after first deploy
+
+  # ── Frontend (Static Site) ─────────────────────────────
+  - type: web
+    name: offerflow-client
+    runtime: static
+    region: oregon
+    plan: free
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false          # Set to https://offerflow-server.onrender.com/api/v1
+      - key: VITE_WS_URL
+        sync: false          # Set to wss://offerflow-server.onrender.com/api/v1/interviews/ws
