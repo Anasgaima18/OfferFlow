@@ -1,23 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
+import { env } from '../config/env';
 
 export const globalErrorHandler = (
-    err: any,
+    err: Error,
     req: Request,
     res: Response,
-    next: NextFunction
+    _next: NextFunction
 ) => {
-    err.statusCode = err.statusCode || 500;
-    err.status = err.status || 'error';
+    const isAppError = err instanceof AppError;
+    const statusCode = isAppError ? err.statusCode : 500;
+    const status = isAppError ? err.status : 'error';
 
     // Log the error
     Logger.error(`[${req.method}] ${req.url} - ${err.message}`, err);
 
-    if (process.env.NODE_ENV === 'development') {
-        return res.status(err.statusCode).json({
+    if (env.NODE_ENV === 'development') {
+        return res.status(statusCode).json({
             success: false,
-            status: err.status,
+            status,
             error: err,
             message: err.message,
             stack: err.stack
@@ -25,10 +27,10 @@ export const globalErrorHandler = (
     }
 
     // Production: Don't leak stack traces
-    if (err.isOperational) {
-        return res.status(err.statusCode).json({
+    if (isAppError && err.isOperational) {
+        return res.status(statusCode).json({
             success: false,
-            status: err.status,
+            status,
             message: err.message
         });
     }

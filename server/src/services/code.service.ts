@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { AppError } from '../utils/appError';
+import { Logger } from '../utils/logger';
 
 interface PistonResponse {
     run: {
@@ -33,10 +34,27 @@ export class CodeService {
 
     /**
      * Execute source code via Piston API
+     * Security: code runs in Piston sandbox; we add audit logging + size validation
      */
-    async executeCode(language: string, sourceCode: string): Promise<string> {
+    async executeCode(language: string, sourceCode: string, userId?: string): Promise<string> {
         const runtime = this.languageMap[language] || language;
         const version = this.versionMap[runtime] || '*';
+
+        // Audit log for every code execution
+        Logger.info(`[CODE_EXEC] user=${userId || 'unknown'} lang=${runtime} size=${sourceCode.length}`);
+
+        // Warn on potentially dangerous patterns (sandbox handles actual isolation)
+        const dangerousPatterns = [
+            /child_process/i, /require\s*\(\s*['"]os['"]\s*\)/i,
+            /import\s+os/i, /subprocess/i, /\bexec\s*\(/i,
+            /Runtime\.getRuntime/i, /ProcessBuilder/i, /system\s*\(/i,
+        ];
+        for (const pattern of dangerousPatterns) {
+            if (pattern.test(sourceCode)) {
+                Logger.warn(`[CODE_EXEC] Suspicious pattern detected: ${pattern} user=${userId || 'unknown'}`);
+                break;
+            }
+        }
 
         try {
             const response = await axios.post<PistonResponse>(`${this.pistonUrl}/execute`, {
@@ -58,8 +76,11 @@ export class CodeService {
             }
 
             return stdout || output || 'Execution completed with no output.';
-        } catch (error: any) {
-            console.error('Code Execution Error:', error?.response?.data || error.message);
+        } catch (error: unknown) {
+            const detail = axios.isAxiosError(error)
+                ? String(error.response?.data ?? error.message)
+                : (error instanceof Error ? error.message : String(error));
+            Logger.error('Code Execution Error:', detail);
             throw new AppError('Failed to execute code. Please try again later.', 500);
         }
     }

@@ -172,7 +172,6 @@ export class InterviewService {
     // Get leaderboard
     async getLeaderboard(limit: number = 10): Promise<Array<{
         rank: number;
-        userId: string;
         name: string;
         avatar: string | null;
         totalInterviews: number;
@@ -206,8 +205,7 @@ export class InterviewService {
 
         // Sort by average score
         const leaderboard = Array.from(userMap.entries())
-            .map(([userId, data]) => ({
-                userId,
+            .map(([_userId, data]) => ({
                 name: data.name,
                 avatar: data.avatar,
                 totalInterviews: data.count,

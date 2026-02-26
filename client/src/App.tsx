@@ -26,6 +26,7 @@ const Tips = lazy(() => import('./pages/Tips'));
 const Terms = lazy(() => import('./pages/Terms'));
 const ResumeReview = lazy(() => import('./pages/ResumeReview'));
 const FeedbackReport = lazy(() => import('./pages/FeedbackReport'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 import { Toaster } from 'sonner';
 
@@ -68,6 +69,9 @@ function App() {
                 <Route path="/questions" element={<ProtectedRoute><QuestionBank /></ProtectedRoute>} />
                 <Route path="/resume-review" element={<ProtectedRoute><ResumeReview /></ProtectedRoute>} />
                 <Route path="/feedback/:id" element={<ProtectedRoute><FeedbackReport /></ProtectedRoute>} />
+
+                {/* 404 Catch-All */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </div>

@@ -4,6 +4,28 @@ import WebSocket from 'ws';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
 
+/** Helper to extract an error message from an unknown caught value */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+/** Helper to extract Axios response body from an unknown error */
+function getAxiosErrorDetail(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    return String(error.response?.data ?? error.message);
+  }
+  return getErrorMessage(error);
+}
+
+/** Shape of transcript/event data emitted from Sarvam STT */
+export interface SarvamSTTData {
+  transcript?: string;
+  _event?: boolean;
+  signal_type?: string;
+  [key: string]: unknown;
+}
+
 export class SarvamService {
   private apiKey: string;
   private baseUrl = 'https://api.sarvam.ai';
@@ -53,8 +75,8 @@ export class SarvamService {
         }
       );
       return response.data;
-    } catch (error: any) {
-      Logger.error(`Sarvam TTS Error: ${error?.response?.data || error.message}`);
+    } catch (error: unknown) {
+      Logger.error(`Sarvam TTS Error: ${getAxiosErrorDetail(error)}`);
       throw new AppError('Failed to generate speech with Sarvam AI', 500);
     }
   }
@@ -82,8 +104,8 @@ export class SarvamService {
       );
 
       return response.data.choices[0].message.content;
-    } catch (error: any) {
-      Logger.error(`Sarvam Chat Error: ${error?.response?.data || error.message}`);
+    } catch (error: unknown) {
+      Logger.error(`Sarvam Chat Error: ${getAxiosErrorDetail(error)}`);
       throw new AppError('Failed to generate AI response', 500);
     }
   }
@@ -93,7 +115,7 @@ export class SarvamService {
    * Connects to Sarvam AI and returns the WebSocket instance.
    * Documentation: https://docs.sarvam.ai/api-reference-docs/speech-to-text/transcribe/ws
    */
-  startStreamingSTT(onMessage: (data: any) => void, onError: (err: any) => void): WebSocket {
+  startStreamingSTT(onMessage: (data: SarvamSTTData) => void, onError: (err: Error) => void): WebSocket {
     if (!this.apiKey) {
         throw new Error('Missing API Key for Sarvam Streaming');
     }

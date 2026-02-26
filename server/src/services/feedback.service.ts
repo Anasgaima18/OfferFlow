@@ -1,6 +1,7 @@
 import { interviewService } from './interview.service';
 import { sarvamService } from './sarvam.service';
 import { Logger } from '../utils/logger';
+import { z } from 'zod';
 
 export interface FeedbackResult {
     overallScore: number;
@@ -50,11 +51,9 @@ export class FeedbackService {
 
             const aiResponse = await sarvamService.generateResponse(analysisPrompt);
 
-            // Parse AI response as JSON
-            const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]) as FeedbackResult;
-                // Update interview with AI-generated score
+            // Parse AI response as JSON — try direct parse first, then regex fallback
+            const parsed = this.parseAIFeedback(aiResponse);
+            if (parsed) {
                 await interviewService.updateInterview(interviewId, {
                     score: parsed.overallScore,
                     feedback: parsed.summary,
@@ -68,6 +67,48 @@ export class FeedbackService {
 
         // Return default feedback but do NOT save fake scores to the database
         return this.getDefaultFeedback();
+    }
+
+    private readonly FeedbackSchema = z.object({
+        overallScore: z.number().min(0).max(100),
+        categories: z.array(z.object({
+            name: z.string(),
+            score: z.number().min(0).max(100),
+            feedback: z.string(),
+        })),
+        strengths: z.array(z.string()),
+        improvements: z.array(z.string()),
+        summary: z.string(),
+    });
+
+    /**
+     * Parse and validate AI feedback response.
+     * Strategy: try JSON.parse() first, then regex extraction as fallback.
+     * Validates with Zod to ensure the LLM returned the correct structure.
+     */
+    private parseAIFeedback(aiResponse: string): FeedbackResult | null {
+        // Step 1: Try direct JSON.parse
+        try {
+            const direct = JSON.parse(aiResponse);
+            const validated = this.FeedbackSchema.parse(direct);
+            return validated;
+        } catch {
+            // Not valid JSON directly — try regex extraction
+        }
+
+        // Step 2: Regex fallback — find the last complete JSON object
+        try {
+            const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const extracted = JSON.parse(jsonMatch[0]);
+                const validated = this.FeedbackSchema.parse(extracted);
+                return validated;
+            }
+        } catch (err) {
+            Logger.warn('Failed to parse AI feedback JSON', err);
+        }
+
+        return null;
     }
 
     private getDefaultFeedback(): FeedbackResult {

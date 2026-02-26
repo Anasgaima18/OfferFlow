@@ -35,9 +35,20 @@ export const CreateInterviewSchema = z.object({
     }),
 });
 
+export const UpdateInterviewSchema = z.object({
+    score: z.number().min(0).max(100).optional(),
+    status: z.enum(['pending', 'in-progress', 'completed']).optional(),
+    feedback: z.string().max(10000).optional(),
+});
+
+export const SpeakSchema = z.object({
+    text: z.string().min(1, 'Text is required').max(2000, 'Text must be under 2000 characters'),
+    voiceId: z.string().max(100).optional(),
+});
+
 export const ExecuteCodeSchema = z.object({
     language: z.enum(['javascript', 'python', 'java', 'cpp']).optional().default('javascript'),
     code: z.string()
         .min(1, 'Code is required')
-        .max(50000, 'Code must be under 50KB'),
+        .max(10000, 'Code must be under 10KB'),
 });

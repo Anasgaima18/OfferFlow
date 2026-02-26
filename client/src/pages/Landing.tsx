@@ -4,10 +4,19 @@ import Hero from '../components/Hero';
 import ProcessSection from '../components/ProcessSection';
 import Footer from '../components/Footer';
 import { Mic, Code2, BarChart3 } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
 
-const Landing: React.FC = () => (
+const Landing: React.FC = () => {
+  usePageMeta({
+    title: 'OfferFlow — AI Mock Interviews | Ace Your Technical Interview',
+    description: 'Practice technical and behavioral interviews with an AI interviewer. Real-time voice chat, code execution in 40+ languages, and instant feedback. Try your first interview free.',
+    ogType: 'website',
+  });
+
+  return (
   <>
     <Navbar />
+    <main>
     <Hero />
     <ProcessSection />
     <section id="features" className="py-24 relative">
@@ -42,6 +51,7 @@ const Landing: React.FC = () => (
     </section>
     <Footer />
   </>
-);
+  );
+};
 
 export default Landing;

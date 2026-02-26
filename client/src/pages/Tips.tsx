@@ -1,6 +1,7 @@
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Lightbulb, BookOpen, Zap, Target } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const tips = [
   { category: 'Before Interview', items: ['Research the company culture', 'Review your resume', 'Prepare questions to ask', 'Test your equipment'] },
@@ -9,7 +10,13 @@ const tips = [
   { category: 'Behavioral Tips', items: ['Use STAR method', 'Be specific with examples', 'Show leadership', 'Demonstrate growth'] },
 ];
 
-const Tips = () => (
+const Tips = () => {
+  usePageMeta({
+    title: 'Interview Tips — OfferFlow | Ace Your Next Tech Interview',
+    description: 'Expert tips for technical interviews: preparation strategies, DSA problem-solving approaches, behavioral interview STAR method, and time management techniques.',
+  });
+
+  return (
   <div className="min-h-screen bg-background text-white font-sans">
     <Navbar />
     <main className="pt-32 pb-24 px-4">
@@ -18,13 +25,13 @@ const Tips = () => (
         <div className="grid md:grid-cols-2 gap-6">
           {tips.map((section, idx) => (
             <div key={idx} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                 {idx === 0 && <BookOpen size={18} className="text-primary" />}
                 {idx === 1 && <Zap size={18} className="text-secondary" />}
                 {idx === 2 && <Target size={18} className="text-purple-400" />}
                 {idx === 3 && <Lightbulb size={18} className="text-pink-400" />}
                 {section.category}
-              </h3>
+              </h2>
               <ul className="space-y-3">
                 {section.items.map((tip, i) => (
                   <li key={i} className="flex items-start gap-3 text-zinc-300">
@@ -40,6 +47,7 @@ const Tips = () => (
     </main>
     <Footer />
   </div>
-);
+  );
+};
 
 export default Tips;

@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Button from '../components/ui/Button';
 import { Clock, Trophy, Flame, ChevronRight, Loader2 } from 'lucide-react';
-import { interviews } from '../services/api';
+import { interviews, InterviewStats } from '../services/api';
 
 // Rotating daily challenges — one per day based on day-of-year
 const challengePool = [
@@ -73,12 +73,7 @@ const difficultyColor: Record<string, string> = {
   Hard: 'text-red-400 bg-red-400/10',
 };
 
-interface UserStats {
-  totalInterviews: number;
-  completedInterviews: number;
-  averageScore: number;
-  rank: number;
-}
+
 
 const DailyChallenge = () => {
   const getTimeUntilMidnight = () => {
@@ -94,7 +89,7 @@ const DailyChallenge = () => {
   };
 
   const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnight());
-  const [stats, setStats] = useState<UserStats | null>(null);
+  const [stats, setStats] = useState<InterviewStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const challenge = getDailyChallenge();
@@ -110,7 +105,9 @@ const DailyChallenge = () => {
     const fetchStats = async () => {
       try {
         const res = await interviews.getStats();
-        setStats(res.data);
+        if (res.data.success && res.data.data) {
+          setStats(res.data.data);
+        }
       } catch {
         // Stats will show fallback
       } finally {

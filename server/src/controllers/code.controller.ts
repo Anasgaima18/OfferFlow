@@ -11,7 +11,8 @@ export class CodeController {
             return next(new AppError('No code provided', 400));
         }
 
-        const output = await codeService.executeCode(language || 'javascript', code);
+        const userId = req.user?.id;
+        const output = await codeService.executeCode(language || 'javascript', code, userId);
 
         res.status(200).json({
             success: true,

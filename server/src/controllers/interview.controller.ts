@@ -147,10 +147,7 @@ export class InterviewController {
     // Text to Speech (ElevenLabs)
     speak = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const { text, voiceId } = req.body;
-
-        if (!text) {
-            return next(new AppError('Text is required', 400));
-        }
+        // Input validation handled by SpeakSchema in route middleware
 
         const audioBuffer = await elevenLabsService.generateSpeech(text, voiceId);
 

@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
+
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { BookOpen, Clock, User, ArrowRight } from 'lucide-react';
+import { BookOpen, Clock, User } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const blogPosts = [
   { id: 1, slug: 'ace-behavioral', title: 'How to Ace Behavioral Interviews', excerpt: 'Learn the STAR method.', author: 'Sarah Chen', readTime: '8 min', category: 'Behavioral', image: '🎯' },
@@ -9,7 +10,13 @@ const blogPosts = [
   { id: 3, slug: 'leetcode-patterns', title: 'Top 25 LeetCode Patterns', excerpt: 'Essential patterns.', author: 'Emily Wang', readTime: '12 min', category: 'Algorithms', image: '💡' },
 ];
 
-const Blog = () => (
+const Blog = () => {
+  usePageMeta({
+    title: 'Blog — OfferFlow | Interview Prep Articles & Guides',
+    description: 'Read expert articles on acing behavioral interviews, system design primers, LeetCode patterns, and more from the OfferFlow team.',
+  });
+
+  return (
   <div className="min-h-screen bg-background text-white font-sans">
     <Navbar />
     <main className="pt-32 pb-24 px-4">
@@ -17,7 +24,7 @@ const Blog = () => (
         <h1 className="text-4xl font-bold mb-8 flex items-center gap-3"><BookOpen className="text-primary" /> Blog</h1>
         <div className="grid md:grid-cols-2 gap-6">
           {blogPosts.map((post) => (
-            <Link key={post.id} to={`/blog/${post.slug}`} className="group bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 hover:border-primary/50 transition-all">
+            <article key={post.id} className="group bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 hover:border-primary/50 transition-all">
               <div className="flex gap-4">
                 <div className="text-4xl">{post.image}</div>
                 <div>
@@ -31,15 +38,16 @@ const Blog = () => (
                 </div>
               </div>
               <div className="flex justify-end mt-4">
-                <span className="text-sm text-primary flex items-center gap-1">Read more <ArrowRight size={14} /></span>
+                <span className="text-sm text-gray-500 flex items-center gap-1">Coming soon</span>
               </div>
-            </Link>
+            </article>
           ))}
         </div>
       </div>
     </main>
     <Footer />
   </div>
-);
+  );
+};
 
 export default Blog;

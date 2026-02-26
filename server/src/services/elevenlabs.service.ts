@@ -3,6 +3,14 @@ import WebSocket from 'ws';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
 
+/** Helper to extract error detail from an unknown caught value (Axios-aware) */
+function getAxiosErrorDetail(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    return String(error.response?.data ?? error.message);
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
 // Types for WebSocket TTS
 interface VoiceSettings {
   stability?: number;
@@ -73,8 +81,8 @@ export class ElevenLabsService {
       );
 
       return response.data;
-    } catch (error: any) {
-      Logger.error(`ElevenLabs TTS Error: ${error?.response?.data || error.message}`);
+    } catch (error: unknown) {
+      Logger.error(`ElevenLabs TTS Error: ${getAxiosErrorDetail(error)}`);
       throw new AppError('Failed to generate speech with ElevenLabs', 500);
     }
   }
@@ -122,7 +130,7 @@ export class ElevenLabsService {
       isOpen = true;
 
       // BOS (beginning of stream) — initialize with voice settings and API key
-      const initMessage: Record<string, any> = {
+      const initMessage = {
         text: ' ',
         voice_settings: {
           stability: 0.5,

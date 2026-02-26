@@ -61,10 +61,8 @@ const Hero: React.FC = () => {
                         className="mb-8"
                     >
                         <h1 className="font-pixel text-5xl md:text-7xl lg:text-8xl tracking-wider text-white mb-4">
-                            READY TO ACE YOUR
-                        </h1>
-                        <h1 className="font-pixel text-5xl md:text-7xl lg:text-8xl tracking-wider text-white">
-                            INTERVIEW?
+                            <span className="block">READY TO ACE YOUR</span>
+                            <span className="block">INTERVIEW?</span>
                         </h1>
                     </motion.div>
 

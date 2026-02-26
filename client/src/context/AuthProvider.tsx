@@ -17,7 +17,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           // Validate token against server
           const res = await auth.me();
-          const serverUser = res.data?.data?.user ?? res.data?.user ?? res.data;
+          // @ts-expect-error - Some backend responses might wrap in data.data
+          const serverUser = res.data?.data?.user ?? res.data?.user;
           if (serverUser && serverUser.id) {
             setUser(serverUser);
             localStorage.setItem('user', JSON.stringify(serverUser));

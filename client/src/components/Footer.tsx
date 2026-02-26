@@ -49,13 +49,13 @@ const Footer: React.FC = () => {
                             <li><Link to="/terms" className="text-gray-500 hover:text-white transition-colors">Terms of Service</Link></li>
                         </ul>
                         <div className="flex gap-4 mt-6">
-                            <a href="https://github.com" aria-label="Github" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+                            <a href="https://github.com/offerflow" aria-label="OfferFlow on Github" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
                                 <Github size={18} />
                             </a>
-                            <a href="https://twitter.com" aria-label="Twitter" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+                            <a href="https://twitter.com/offerflow" aria-label="OfferFlow on Twitter" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
                                 <Twitter size={18} />
                             </a>
-                            <a href="https://linkedin.com" aria-label="LinkedIn" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+                            <a href="https://linkedin.com/company/offerflow" aria-label="OfferFlow on LinkedIn" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
                                 <Linkedin size={18} />
                             </a>
                         </div>

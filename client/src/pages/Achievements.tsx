@@ -2,25 +2,15 @@ import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Trophy, Target, Flame, Star, Award, Zap, Clock, Code } from 'lucide-react';
-import { interviews } from '../services/api';
+import { interviews, InterviewStats } from '../services/api';
 
 interface AchievementDef {
   id: number;
   name: string;
   description: string;
   icon: React.ReactNode;
-  check: (stats: StatsData) => boolean;
-  progress: (stats: StatsData) => number;
-}
-
-interface StatsData {
-  totalInterviews: number;
-  completedInterviews: number;
-  averageScore: number;
-  highestScore: number;
-  totalBehavioral: number;
-  totalTechnical: number;
-  totalSystemDesign: number;
+  check: (stats: InterviewStats) => boolean;
+  progress: (stats: InterviewStats) => number;
 }
 
 const achievementDefs: AchievementDef[] = [
@@ -53,16 +43,16 @@ const achievementDefs: AchievementDef[] = [
     name: 'High Achiever',
     description: 'Score above 80% on any interview',
     icon: <Zap />,
-    check: (stats) => stats.highestScore >= 80,
-    progress: (stats) => Math.min((stats.highestScore / 80) * 100, 100),
+    check: (stats) => (stats.highestScore || 0) >= 80,
+    progress: (stats) => Math.min(((stats.highestScore || 0) / 80) * 100, 100),
   },
   {
     id: 5,
     name: 'Perfect Score',
     description: 'Score 100% on any interview',
     icon: <Star />,
-    check: (stats) => stats.highestScore >= 100,
-    progress: (stats) => Math.min((stats.highestScore / 100) * 100, 100),
+    check: (stats) => (stats.highestScore || 0) >= 100,
+    progress: (stats) => Math.min(((stats.highestScore || 0) / 100) * 100, 100),
   },
   {
     id: 6,
@@ -77,25 +67,25 @@ const achievementDefs: AchievementDef[] = [
     name: 'Consistent Performer',
     description: 'Maintain an average score above 70%',
     icon: <Clock />,
-    check: (stats) => stats.completedInterviews >= 3 && stats.averageScore >= 70,
-    progress: (stats) => stats.completedInterviews < 3 ? Math.min((stats.completedInterviews / 3) * 50, 50) : Math.min((stats.averageScore / 70) * 100, 100),
+    check: (stats) => stats.completedInterviews >= 3 && (stats.averageScore || 0) >= 70,
+    progress: (stats) => stats.completedInterviews < 3 ? Math.min((stats.completedInterviews / 3) * 50, 50) : Math.min(((stats.averageScore || 0) / 70) * 100, 100),
   },
   {
     id: 8,
     name: 'Interview Master',
     description: 'Complete 50 interviews with an average score above 75%',
     icon: <Award />,
-    check: (stats) => stats.completedInterviews >= 50 && stats.averageScore >= 75,
+    check: (stats) => stats.completedInterviews >= 50 && (stats.averageScore || 0) >= 75,
     progress: (stats) => {
       const interviewProgress = Math.min(stats.completedInterviews / 50, 1);
-      const scoreProgress = stats.averageScore >= 75 ? 1 : stats.averageScore / 75;
+      const scoreProgress = (stats.averageScore || 0) >= 75 ? 1 : (stats.averageScore || 0) / 75;
       return Math.min((interviewProgress * 0.6 + scoreProgress * 0.4) * 100, 100);
     },
   },
 ];
 
 const Achievements = () => {
-  const [stats, setStats] = useState<StatsData | null>(null);
+  const [stats, setStats] = useState<InterviewStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

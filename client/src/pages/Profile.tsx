@@ -5,17 +5,11 @@ import Footer from '../components/Footer';
 import Button from '../components/ui/Button';
 import { Mail, Calendar, Trophy, Target, Clock, Edit2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { interviews } from '../services/api';
-
-interface Stats {
-  totalInterviews: number;
-  averageScore: number;
-  completedInterviews: number;
-}
+import { interviews, InterviewStats } from '../services/api';
 
 const Profile = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<InterviewStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,10 +21,11 @@ const Profile = () => {
         ]);
 
         const statsData = statsRes.data.data;
-        const interviewList = interviewsRes.data.data.interviews || interviewsRes.data.data || [];
+        const interviewList = interviewsRes.data.data?.interviews || [];
 
+        // Cast to InterviewStats if necessary or destructure 
         setStats({
-          totalInterviews: Array.isArray(interviewList) ? interviewList.length : statsData.totalInterviews || 0,
+          totalInterviews: interviewList.length || statsData.totalInterviews || 0,
           averageScore: statsData.averageScore || 0,
           completedInterviews: statsData.completedInterviews || 0,
         });

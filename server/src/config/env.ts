@@ -28,3 +28,9 @@ export function validateEnv(): Env {
 
     return result.data;
 }
+
+/**
+ * Validated environment variables singleton.
+ * Import this instead of reading process.env directly for type safety.
+ */
+export const env = validateEnv();

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const FAQItem = ({ question, answer }: { question: string, answer: string }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,6 +26,11 @@ const FAQItem = ({ question, answer }: { question: string, answer: string }) => 
 }
 
 const Support = () => {
+  usePageMeta({
+    title: 'Help & Support — OfferFlow | FAQ & Contact',
+    description: 'Find answers to common questions about OfferFlow AI interviews, coding languages, data privacy, and subscription management. Contact support for additional help.',
+  });
+
   return (
     <div className="min-h-screen bg-background text-white font-sans">
       <Navbar />
@@ -56,7 +62,7 @@ const Support = () => {
           </div>
 
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-8 text-center">
-             <h3 className="text-xl font-bold mb-2">Still have questions?</h3>
+             <h2 className="text-xl font-bold mb-2">Still have questions?</h2>
              <p className="text-zinc-400 mb-6">We're here to help you ace your interview.</p>
              <a href="mailto:support@offerflow.ai" className="inline-block bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
                 Contact Support

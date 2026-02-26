@@ -2,15 +2,8 @@ import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { BarChart3, TrendingUp, Target, Clock, Brain, Mic } from 'lucide-react';
-import { interviews } from '../services/api';
+import { interviews, InterviewStats } from '../services/api';
 import { IInterview } from '../types';
-
-interface Stats {
-  totalInterviews: number;
-  completedInterviews: number;
-  averageScore: number;
-  rank: number;
-}
 
 interface DayData {
   day: string;
@@ -121,22 +114,27 @@ const StatsCardSkeleton = () => (
   </div>
 );
 
-const ChartSkeleton = () => (
-  <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-    <SkeletonBlock className="h-5 w-40 mb-6" />
-    <div className="flex items-end justify-between h-40 gap-2">
-      {Array.from({ length: 7 }).map((_, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center">
-          <SkeletonBlock
-            className="w-full rounded-t-md"
-            style={{ height: `${30 + Math.random() * 60}%` } as React.CSSProperties}
-          />
-          <SkeletonBlock className="h-3 w-6 mt-2" />
-        </div>
-      ))}
+const ChartSkeleton = () => {
+  // Pre-compute values so render is pure
+  const heights = [60, 45, 80, 50, 75, 40, 90];
+  
+  return (
+    <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+      <SkeletonBlock className="h-5 w-40 mb-6" />
+      <div className="flex items-end justify-between h-40 gap-2">
+        {heights.map((h, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center">
+            <SkeletonBlock
+              className="w-full rounded-t-md"
+              style={{ height: `${h}%` } as React.CSSProperties}
+            />
+            <SkeletonBlock className="h-3 w-6 mt-2" />
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const BreakdownSkeleton = () => (
   <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
@@ -174,7 +172,7 @@ const TableSkeleton = () => (
 /* ---------- Main Component ---------- */
 
 const Analytics = () => {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<InterviewStats | null>(null);
   const [interviewList, setInterviewList] = useState<IInterview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -190,7 +188,7 @@ const Analytics = () => {
           interviews.getAll(),
         ]);
 
-        const statsData = statsRes.data?.data as Stats;
+        const statsData = statsRes.data?.data as InterviewStats;
         const interviewsData = (interviewsRes.data?.data?.interviews ?? []) as IInterview[];
 
         setStats(statsData);

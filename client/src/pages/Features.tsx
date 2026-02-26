@@ -1,6 +1,7 @@
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Mic, Code, Layout, BarChart2, Clock, Users } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const features = [
   {
@@ -36,6 +37,11 @@ const features = [
 ];
 
 const Features = () => {
+  usePageMeta({
+    title: 'Features — OfferFlow | AI Voice Chat, Code Editor & Analytics',
+    description: 'Explore OfferFlow features: AI voice interviews, code editor with 40+ languages, whiteboard, detailed scoring, timed sessions, and FAANG-style questions.',
+  });
+
   return (
     <div className="min-h-screen bg-background text-white font-sans">
       <Navbar />

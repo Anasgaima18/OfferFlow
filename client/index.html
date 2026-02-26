@@ -45,10 +45,80 @@
         border-radius: 20px;
       }
     </style>
+
+    <!-- Open Graph defaults (overridden per-page by usePageMeta) -->
+    <meta property="og:site_name" content="OfferFlow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="OfferFlow — AI Mock Interviews" />
+    <meta
+      property="og:description"
+      content="Master your technical and behavioral interviews with OfferFlow's AI-powered platform."
+    />
+    <meta property="og:image" content="https://offerflow.ai/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="OfferFlow — AI Mock Interviews" />
+    <meta
+      name="twitter:description"
+      content="Master your technical and behavioral interviews with OfferFlow's AI-powered platform."
+    />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "OfferFlow",
+        "url": "https://offerflow.ai",
+        "logo": "https://offerflow.ai/logo.svg",
+        "description": "AI-powered mock interview platform for technical and behavioral interviews.",
+        "sameAs": [
+          "https://github.com/offerflow",
+          "https://twitter.com/offerflow",
+          "https://linkedin.com/company/offerflow"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "support@offerflow.ai",
+          "contactType": "customer support"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "OfferFlow",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "description": "Practice technical and behavioral interviews with an AI interviewer. Real-time voice chat, code execution in 40+ languages, and instant scoring.",
+        "offers": [
+          {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "name": "Free",
+            "description": "1 free interview"
+          },
+          {
+            "@type": "Offer",
+            "price": "20",
+            "priceCurrency": "USD",
+            "name": "Starter",
+            "description": "6 interviews per month"
+          },
+          {
+            "@type": "Offer",
+            "price": "50",
+            "priceCurrency": "USD",
+            "name": "Pro",
+            "description": "15 interviews per month"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Check, Star } from 'lucide-react';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 interface PricingCardProps {
   title: string;
@@ -62,6 +63,11 @@ const PricingCard = ({ title, price, period, interviews, features, recommended =
 );
 
 const Pricing = () => {
+  usePageMeta({
+    title: 'Pricing — OfferFlow | AI Mock Interview Plans',
+    description: 'Compare OfferFlow plans: Free, Starter ($20/mo), Pro ($50/mo), and Enterprise. AI-powered mock interviews with real-time feedback, code execution, and detailed scoring.',
+  });
+
   return (
     <div className="min-h-screen bg-background text-white font-sans">
       <Navbar />

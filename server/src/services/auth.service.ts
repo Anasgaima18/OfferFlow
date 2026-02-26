@@ -3,6 +3,7 @@ import { AppError } from '../utils/appError';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { UserInput, IUser } from '../models/User';
+import { env } from '../config/env';
 
 export class AuthService {
     // Sign Up
@@ -86,11 +87,8 @@ export class AuthService {
     }
 
     private signToken(id: string): string {
-        if (!process.env.JWT_SECRET) {
-            throw new AppError('Server configuration error: JWT_SECRET is not set', 500);
-        }
-        return jwt.sign({ id }, process.env.JWT_SECRET, {
-            expiresIn: '7d',
+        return jwt.sign({ id, iat: Math.floor(Date.now() / 1000) }, env.JWT_SECRET, {
+            expiresIn: '24h',
         });
     }
 }
