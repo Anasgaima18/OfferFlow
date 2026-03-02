@@ -53,8 +53,27 @@ const FeedbackReport = () => {
       try {
         const response = await interviews.getFeedback(id);
         const data = response.data.data;
-        setFeedback(data.feedback);
-        setInterview(data.interview);
+        const apiFeedback = data.feedback;
+        
+        let parsedCategories = [];
+        if (apiFeedback.detailed_feedback) {
+            try {
+                parsedCategories = typeof apiFeedback.detailed_feedback === 'string' 
+                   ? JSON.parse(apiFeedback.detailed_feedback) 
+                   : apiFeedback.detailed_feedback;
+            } catch (e) {
+                console.error("Could not parse detailed feedback:", e);
+            }
+        }
+        
+        setFeedback({
+            overallScore: apiFeedback.overall_score || 0,
+            summary: apiFeedback.summary || '',
+            strengths: apiFeedback.strengths || [],
+            improvements: apiFeedback.improvements || [],
+            categories: Array.isArray(parsedCategories) ? parsedCategories : []
+        });
+        setInterview(data.interview as unknown as InterviewData);
       } catch (err: any) {
         if (err.response?.status === 404) {
           setError('not-found');

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import WebSocket from 'ws';
 import { AppError } from '../utils/appError';
+import { config } from '../config/env';
 import { Logger } from '../utils/logger';
 
 /** Helper to extract error detail from an unknown caught value (Axios-aware) */
@@ -44,7 +45,7 @@ export class ElevenLabsService {
   private defaultVoiceId = 'EXAVITQu4vr4xnSDxMaL'; // Sarah - natural conversational voice
 
   constructor() {
-    this.apiKey = process.env.ELEVENLABS_API_KEY || '';
+    this.apiKey = config.ELEVENLABS_API_KEY || '';
     if (!this.apiKey) {
       Logger.warn('[ElevenLabsService]: No API Key provided. TTS will fail.');
     }

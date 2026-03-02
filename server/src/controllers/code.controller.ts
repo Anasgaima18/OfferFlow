@@ -1,24 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
-import { codeService } from '../services/code.service';
+import { CodeService } from '../services/code.service';
 import { catchAsync } from '../utils/catchAsync';
 import { AppError } from '../utils/appError';
+import { BaseController } from './BaseController';
 
-export class CodeController {
+export class CodeController extends BaseController {
+    constructor(private readonly codeService: CodeService) {
+        super();
+    }
+
     execute = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const { language, code } = req.body;
 
         if (!code) {
-            return next(new AppError('No code provided', 400));
+            throw new AppError('No code provided', 400);
         }
 
-        const userId = req.user?.id;
-        const output = await codeService.executeCode(language || 'javascript', code, userId);
+        const userId = req.user?.id as string | undefined;
+        const output = await this.codeService.executeCode(language || 'javascript', code, userId);
 
-        res.status(200).json({
-            success: true,
-            output
-        });
+        this.handleSuccess(res, { output }, 'Code executed successfully');
     });
 }
-
-export const codeController = new CodeController();

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
-import { env } from '../config/env';
+import { config } from '../config/env';
 
 export const globalErrorHandler = (
     err: Error,
@@ -16,7 +16,7 @@ export const globalErrorHandler = (
     // Log the error
     Logger.error(`[${req.method}] ${req.url} - ${err.message}`, err);
 
-    if (env.NODE_ENV === 'development') {
+    if (config.NODE_ENV === 'development') {
         return res.status(statusCode).json({
             success: false,
             status,

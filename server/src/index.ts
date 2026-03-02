@@ -3,9 +3,11 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Validate environment variables immediately (env singleton is created on import)
-import { env } from './config/env';
+import { config } from './config/env';
 
+import './instrument'; // MUST BE IMPORTED FIRST
 import express, { Express, Request, Response, NextFunction } from 'express';
+import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -21,15 +23,23 @@ import './config/supabase';
 import authRoutes from './routes/auth.routes';
 import interviewRoutes from './routes/interview.routes';
 
+// Import Services for DI setup
+import { InterviewRepository } from './repositories/InterviewRepository';
+import { InterviewService } from './services/interview.service';
+import { SarvamService } from './services/sarvam.service';
+import { ElevenLabsService } from './services/elevenlabs.service';
+import { FeedbackService } from './services/feedback.service';
+
 const app: Express = express();
-const port = env.PORT;
-const isProduction = env.NODE_ENV === 'production';
+const PORT = config.PORT;
+const isProduction = config.NODE_ENV === 'production';
 
 // --- Security Middleware ---
 
+
 // S1: CORS — restrict origins
-const allowedOrigins = env.CLIENT_URL
-    ? env.CLIENT_URL.split(',').map(o => o.trim())
+const allowedOrigins = config.CLIENT_URL
+    ? config.CLIENT_URL.split(',').map(o => o.trim())
     : ['http://localhost:5173'];
 
 app.use(cors({
@@ -84,7 +94,7 @@ app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({
         status: 'ok',
         uptime: Math.floor(process.uptime()),
-        environment: env.NODE_ENV,
+        environment: config.NODE_ENV,
     });
 });
 
@@ -102,22 +112,34 @@ app.get('/', (_req: Request, res: Response) => {
 });
 
 // 404 catch-all for undefined routes
-app.all('*', (req: Request, _res: Response, next: NextFunction) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
     next(new AppError(`Cannot find ${req.originalUrl} on this server`, 404));
 });
 
 // Global error handler
 import { globalErrorHandler } from './middleware/error.middleware';
+
+// Sentry error handler must be before any other error middleware
+Sentry.setupExpressErrorHandler(app);
+
+// Global Error Handler
 app.use(globalErrorHandler);
 
-const server = app.listen(port, () => {
-    Logger.info(`Server running on port ${port} (${isProduction ? 'production' : 'development'})`);
+const server = app.listen(PORT, () => {
+    Logger.info(`Server running in ${config.NODE_ENV} mode on port ${PORT}`);
     Logger.info(`API is ready: OfferFlow (Supabase)`);
 });
 
 // --- WebSocket Server for Interview Sessions ---
 import { setupWebSocket } from './ws/interviewSession';
-setupWebSocket(server);
+
+const interviewRepository = new InterviewRepository();
+const sarvamService = new SarvamService();
+const elevenLabsService = new ElevenLabsService();
+const interviewService = new InterviewService(interviewRepository);
+const feedbackService = new FeedbackService(interviewService, sarvamService);
+
+setupWebSocket(server, interviewService, sarvamService, elevenLabsService, feedbackService);
 
 // --- R1: Global process error handlers ---
 process.on('unhandledRejection', (reason: unknown) => {

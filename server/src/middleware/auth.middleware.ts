@@ -2,10 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/appError';
 import { catchAsync } from '../utils/catchAsync';
-import { authService } from '../services/auth.service';
-import { env } from '../config/env';
+import { AuthService } from '../services/auth.service';
+import { config } from '../config/env';
 
-export const protect = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+export const protect = (authService: AuthService) => catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     // 1) Get token and check if it's there
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -19,7 +19,7 @@ export const protect = catchAsync(async (req: Request, res: Response, next: Next
     // 2) Verify token — catch invalid/expired tokens explicitly
     let decoded: { id: string };
     try {
-        decoded = jwt.verify(token, env.JWT_SECRET) as { id: string };
+        decoded = jwt.verify(token, config.JWT_SECRET) as { id: string };
     } catch (err) {
         if (err instanceof jwt.TokenExpiredError) {
             return next(new AppError('Your token has expired. Please log in again.', 401));

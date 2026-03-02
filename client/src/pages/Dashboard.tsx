@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Plus, Clock, Terminal, Trophy, ChevronRight, Zap } from 'lucide-react';
@@ -8,11 +8,18 @@ import { interviews } from '../services/api';
 import { IInterview } from '../types';
 import { toast } from 'sonner';
 
+// rendering-hoist-jsx: Icons hoisted to module-level to avoid re-creation per render
+const STAT_ICONS = {
+    interviews: <Clock size={20} />,
+    score: <Terminal size={20} />,
+    rank: <Trophy size={20} />,
+} as const;
+
 interface DashboardStats {
     totalInterviews: number;
     completedInterviews: number;
-    averageScore: number;
-    rank: number;
+    averageScore: number | null;
+    rank?: number;
 }
 
 const StatSkeleton: React.FC = () => (
@@ -120,28 +127,30 @@ const Dashboard: React.FC = () => {
         }
     };
 
-    const statCards = stats
-        ? [
-              {
-                  label: 'Interviews',
-                  value: String(stats.totalInterviews),
-                  icon: <Clock size={20} />,
-                  color: 'text-secondary',
-              },
-              {
-                  label: 'Technical Score',
-                  value: stats.averageScore > 0 ? stats.averageScore.toFixed(1) : '--',
-                  icon: <Terminal size={20} />,
-                  color: 'text-primary',
-              },
-              {
-                  label: 'Global Rank',
-                  value: stats.rank > 0 ? `#${stats.rank}` : '--',
-                  icon: <Trophy size={20} />,
-                  color: 'text-purple-400',
-              },
-          ]
-        : [];
+    // rerender-memo: Memoize stat cards to prevent re-creation on every render
+    const statCards = useMemo(() => {
+        if (!stats) return [];
+        return [
+            {
+                label: 'Interviews',
+                value: String(stats.totalInterviews),
+                icon: STAT_ICONS.interviews,
+                color: 'text-secondary',
+            },
+            {
+                label: 'Technical Score',
+                value: (stats.averageScore || 0) > 0 ? stats.averageScore!.toFixed(1) : '--',
+                icon: STAT_ICONS.score,
+                color: 'text-primary',
+            },
+            {
+                label: 'Global Rank',
+                value: stats.rank !== undefined && stats.rank > 0 ? `#${stats.rank}` : '--',
+                icon: STAT_ICONS.rank,
+                color: 'text-purple-400',
+            },
+        ];
+    }, [stats]);
 
     const firstName = user?.name?.split(' ')[0] || 'Developer';
 
@@ -255,11 +264,11 @@ const Dashboard: React.FC = () => {
                                             {getStatusLabel(interview.status)}
                                         </span>
 
-                                        {interview.score !== null && (
+                                        {interview.score !== null ? (
                                             <span className="font-pixel text-xl text-secondary">
                                                 {interview.score}%
                                             </span>
-                                        )}
+                                        ) : null}
 
                                         <ChevronRight
                                             size={18}

@@ -43,11 +43,12 @@ export interface InterviewStats {
 }
 
 export interface LeaderboardEntry {
-    user_id: string;
+    rank: number;
+    userId: string;
     name: string;
-    avatar: string | null;
-    total_score: number;
-    interview_count: number;
+    avatar?: string;
+    totalInterviews: number;
+    averageScore: number;
 }
 
 export interface FeedbackResponse {

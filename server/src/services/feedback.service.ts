@@ -1,5 +1,5 @@
-import { interviewService } from './interview.service';
-import { sarvamService } from './sarvam.service';
+import { InterviewService } from './interview.service';
+import { SarvamService } from './sarvam.service';
 import { Logger } from '../utils/logger';
 import { z } from 'zod';
 
@@ -16,10 +16,14 @@ export interface FeedbackResult {
 }
 
 export class FeedbackService {
+    constructor(
+        private readonly interviewService: InterviewService,
+        private readonly sarvamService: SarvamService
+    ) {}
 
     async generateFeedback(interviewId: string): Promise<FeedbackResult> {
         // Fetch transcript from database
-        const transcript = await interviewService.getTranscript(interviewId);
+        const transcript = await this.interviewService.getTranscript(interviewId);
 
         if (!transcript || transcript.length === 0) {
             Logger.warn(`No transcript found for interview ${interviewId}, returning default feedback`);
@@ -49,12 +53,12 @@ export class FeedbackService {
                 { role: 'user', content: `Analyze this interview transcript:\n\n${conversationText}` }
             ];
 
-            const aiResponse = await sarvamService.generateResponse(analysisPrompt);
+            const aiResponse = await this.sarvamService.generateResponse(analysisPrompt);
 
             // Parse AI response as JSON — try direct parse first, then regex fallback
             const parsed = this.parseAIFeedback(aiResponse);
             if (parsed) {
-                await interviewService.updateInterview(interviewId, {
+                await this.interviewService.updateInterview(interviewId, {
                     score: parsed.overallScore,
                     feedback: parsed.summary,
                     status: 'completed'
@@ -130,5 +134,3 @@ export class FeedbackService {
         };
     }
 }
-
-export const feedbackService = new FeedbackService();

@@ -1,14 +1,16 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Button from '../components/ui/Button';
 import { Mic, MicOff, Video, VideoOff, Play, Code2, Loader2, Clock, PhoneOff } from 'lucide-react';
-import Editor from '@monaco-editor/react';
 import { toast } from 'sonner';
 import { interviews } from '../services/api';
 import { IInterview } from '../types';
 import env from '../config/env';
+
+// bundle-dynamic-imports: Lazy-load Monaco Editor (~2MB) so it only loads when InterviewRoom is visited
+const LazyEditor = lazy(() => import('@monaco-editor/react'));
 
 interface WSMessage {
     type?: 'error' | 'ai_thinking' | 'ai_done' | 'pong' | 'stt_reconnecting' | 'auth_success';
@@ -43,6 +45,23 @@ const codeTemplates: Record<string, string> = {
     python: '# Write your solution here\ndef solve():\n    pass\n',
     java: '// Write your solution here\nclass Solution {\n    public int[] solve() {\n        return new int[]{};\n    }\n}\n',
     cpp: '// Write your solution here\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<int> solve() {\n        return {};\n    }\n};\n',
+};
+
+// rendering-hoist-jsx: Hoist static config outside component to prevent re-creation per render
+const EDITOR_OPTIONS = {
+    minimap: { enabled: false },
+    fontSize: 14,
+    fontFamily: 'JetBrains Mono',
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+    padding: { top: 16 },
+} as const;
+
+// rerender-memo: Pure function — hoist outside component
+const formatTime = (seconds: number): string => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
 };
 
 const InterviewRoom: React.FC = () => {
@@ -96,11 +115,7 @@ const InterviewRoom: React.FC = () => {
         };
     }, [timerActive]);
 
-    const formatTime = (seconds: number): string => {
-        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
-    };
+    // formatTime hoisted to module-level (see above)
 
     // F6: Auto-scroll transcript
     useEffect(() => {
@@ -131,8 +146,7 @@ const InterviewRoom: React.FC = () => {
             try {
                 const res = await interviews.getOne(id);
                 const data = res.data;
-                const interviewData: IInterview =
-                    data?.data?.interview ?? data?.interview ?? data;
+                const interviewData: IInterview = data.data.interview;
                 setInterview(interviewData);
             } catch {
                 toast.error('Failed to load interview data');
@@ -519,14 +533,14 @@ const InterviewRoom: React.FC = () => {
                                 </div>
 
                                 {/* F1: Timer display */}
-                                {timerActive && (
+                                {timerActive ? (
                                     <div className="flex items-center gap-1.5 bg-zinc-800/80 px-2.5 py-1 rounded-full">
                                         <Clock size={12} className="text-primary" />
                                         <span className="font-mono text-xs text-gray-300">
                                             {formatTime(elapsedSeconds)}
                                         </span>
                                     </div>
-                                )}
+                                ) : null}
                             </div>
                         </div>
 
@@ -550,13 +564,13 @@ const InterviewRoom: React.FC = () => {
                                 <span className="text-zinc-600 italic">Waiting for interview to start...</span>
                             )}
                             {/* F4: Live partial transcript */}
-                            {partialTranscript && (
+                            {partialTranscript ? (
                                 <div className="text-zinc-500 italic mt-1">
                                     You: {partialTranscript}...
                                 </div>
-                            )}
+                            ) : null}
                             {/* F3: AI thinking indicator */}
-                            {aiThinking && (
+                            {aiThinking ? (
                                 <div className="flex items-center gap-2 mt-2 text-primary">
                                     <div className="flex gap-1">
                                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -565,7 +579,7 @@ const InterviewRoom: React.FC = () => {
                                     </div>
                                     <span className="text-xs">AI is thinking...</span>
                                 </div>
-                            )}
+                            ) : null}
                         </div>
 
                         {/* AI Status */}
@@ -669,22 +683,21 @@ const InterviewRoom: React.FC = () => {
 
                     {/* Monaco Editor */}
                     <div className="flex-1 relative">
-                        <Editor
-                            height="100%"
-                            defaultLanguage="javascript"
-                            language={language}
-                            value={code}
-                            onChange={(value) => setCode(value || '')}
-                            theme="vs-dark"
-                            options={{
-                                minimap: { enabled: false },
-                                fontSize: 14,
-                                fontFamily: 'JetBrains Mono',
-                                scrollBeyondLastLine: false,
-                                automaticLayout: true,
-                                padding: { top: 16 }
-                            }}
-                        />
+                        <Suspense fallback={
+                            <div className="flex items-center justify-center h-full text-zinc-500">
+                                <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading editor...
+                            </div>
+                        }>
+                            <LazyEditor
+                                height="100%"
+                                defaultLanguage="javascript"
+                                language={language}
+                                value={code}
+                                onChange={(value) => setCode(value || '')}
+                                theme="vs-dark"
+                                options={EDITOR_OPTIONS}
+                            />
+                        </Suspense>
                     </div>
 
                     {/* Console/Output */}

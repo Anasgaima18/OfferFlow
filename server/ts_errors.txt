@@ -1,0 +1,10 @@
+src/config/supabase.ts(3,10): error TS2724: '"./env"' has no exported member named 'env'. Did you mean 'Env'?
+src/middleware/auth.middleware.ts(5,10): error TS2724: '"../services/auth.service"' has no exported member named 'authService'. Did you mean 'AuthService'?
+src/middleware/auth.middleware.ts(6,10): error TS2724: '"../config/env"' has no exported member named 'env'. Did you mean 'Env'?
+src/middleware/error.middleware.ts(4,10): error TS2724: '"../config/env"' has no exported member named 'env'. Did you mean 'Env'?
+src/ws/interviewSession.ts(8,10): error TS2724: '"../services/interview.service"' has no exported member named 'interviewService'. Did you mean 'InterviewService'?
+src/ws/interviewSession.ts(9,10): error TS2724: '"../services/feedback.service"' has no exported member named 'feedbackService'. Did you mean 'FeedbackService'?
+src/ws/interviewSession.ts(10,10): error TS2724: '"../config/env"' has no exported member named 'env'. Did you mean 'Env'?
+src/ws/interviewSession.ts(216,28): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/ws/interviewSession.ts(363,24): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/ws/interviewSession.ts(377,28): error TS7006: Parameter 'e' implicitly has an 'any' type.

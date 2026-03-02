@@ -1,163 +1,175 @@
 import { Request, Response, NextFunction } from 'express';
-import { interviewService } from '../services/interview.service';
-import { feedbackService } from '../services/feedback.service';
-import { catchAsync } from '../utils/catchAsync';
+import { InterviewService } from '../services/interview.service';
+import { FeedbackService } from '../services/feedback.service';
+import { CreateInterviewSchema } from '../models/Interview';
 import { AppError } from '../utils/appError';
-import { elevenLabsService } from '../services/elevenlabs.service';
+import { BaseController } from './BaseController';
+import { catchAsync } from '../utils/catchAsync';
+import { ElevenLabsService } from '../services/elevenlabs.service';
 
-export class InterviewController {
+export class InterviewController extends BaseController {
+    constructor(
+        private readonly interviewService: InterviewService,
+        private readonly elevenLabsService: ElevenLabsService,
+        private readonly feedbackService: FeedbackService
+    ) {
+        super();
+    }
 
-    // Get all interviews for current user
     getAllInterviews = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const userId = req.user!.id;
-        const interviews = await interviewService.getAllInterviews(userId);
+        const userId = req.user!.id as string;
+        const interviews = await this.interviewService.getAllInterviews(userId);
 
-        res.status(200).json({
-            success: true,
-            results: interviews.length,
-            data: { interviews }
-        });
+        this.handleSuccess(res, { interviews }, 'Interviews retrieved successfully');
     });
 
-    // Create a new interview session
     createInterview = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const userId = req.user!.id;
-        const { type } = req.body;
+        const validatedData = CreateInterviewSchema.parse(req.body);
 
-        const interview = await interviewService.createInterview({
-            user_id: userId,
-            type: type as 'behavioral' | 'technical' | 'system-design'
+        const interview = await this.interviewService.createInterview({
+            ...validatedData,
+            user_id: req.user!.id as string
         });
 
-        res.status(201).json({
-            success: true,
-            data: { interview }
-        });
+        this.handleSuccess(res, { interview }, 'Interview created successfully', 201);
     });
 
-    // Get single interview
-    getInterview = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const interview = await interviewService.getInterviewById(req.params.id as string);
+    getInterviewById = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const interviewId = req.params.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId);
 
         if (!interview) {
-            return next(new AppError('No interview found with that ID', 404));
+            throw new AppError('Interview not found', 404);
         }
 
-        // Authorization: verify ownership
         if (interview.user_id !== req.user!.id) {
-            return next(new AppError('You do not have permission to access this interview', 403));
+            throw new AppError('Not authorized to access this interview', 403);
         }
 
-        res.status(200).json({
-            success: true,
-            data: { interview }
-        });
+        this.handleSuccess(res, { interview }, 'Interview retrieved successfully');
     });
 
-    // Update interview (score, feedback, status)
     updateInterview = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        // Authorization: verify ownership before update
-        const existing = await interviewService.getInterviewById(req.params.id as string);
-        if (!existing) {
-            return next(new AppError('No interview found with that ID', 404));
-        }
-        if (existing.user_id !== req.user!.id) {
-            return next(new AppError('You do not have permission to modify this interview', 403));
+        const interviewId = req.params.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId);
+
+        if (!interview) {
+            throw new AppError('Interview not found', 404);
         }
 
-        const { score, feedback, status } = req.body;
+        if (interview.user_id !== req.user!.id) {
+            throw new AppError('Not authorized to modify this interview', 403);
+        }
 
-        const interview = await interviewService.updateInterview(req.params.id as string, {
-            score,
-            feedback,
-            status
-        });
+        // Only allow updating specific fields
+        const allowedUpdates = {
+            score: req.body.score,
+            feedback: req.body.feedback,
+            status: req.body.status
+        };
 
-        res.status(200).json({
-            success: true,
-            data: { interview }
-        });
+        const updatedInterview = await this.interviewService.updateInterview(interviewId, allowedUpdates);
+
+        this.handleSuccess(res, { interview: updatedInterview }, 'Interview updated successfully');
     });
 
-    // Get user stats
-    getStats = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const userId = req.user!.id;
-        const stats = await interviewService.getUserStats(userId);
-
-        res.status(200).json({
-            success: true,
-            data: stats
-        });
-    });
-
-    // Get leaderboard
-    getLeaderboard = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const limit = parseInt(req.query.limit as string) || 10;
-        const leaderboard = await interviewService.getLeaderboard(limit);
-
-        res.status(200).json({
-            success: true,
-            data: { leaderboard }
-        });
-    });
-
-    // Get feedback for an interview
     getFeedback = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
-        const interview = await interviewService.getInterviewById(interviewId);
+        const interview = await this.interviewService.getInterviewById(interviewId);
 
         if (!interview) {
-            return next(new AppError('No interview found with that ID', 404));
+            throw new AppError('No interview found with that ID', 404);
         }
 
-        // Authorization: verify ownership
         if (interview.user_id !== req.user!.id) {
-            return next(new AppError('You do not have permission to access this interview', 403));
+            throw new AppError('You do not have permission to access this interview', 403);
         }
 
-        const feedback = await feedbackService.generateFeedback(interviewId);
+        const feedback = await this.feedbackService.generateFeedback(interviewId);
 
-        res.status(200).json({
-            success: true,
-            data: { feedback, interview }
-        });
+        this.handleSuccess(res, { feedback, interview }, 'Feedback retrieved successfully');
     });
 
-    // Get transcript for an interview
     getTranscript = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId);
 
-        // Authorization: verify ownership
-        const interview = await interviewService.getInterviewById(interviewId);
         if (!interview) {
-            return next(new AppError('No interview found with that ID', 404));
+            throw new AppError('Interview not found', 404);
         }
+
         if (interview.user_id !== req.user!.id) {
-            return next(new AppError('You do not have permission to access this interview', 403));
+            throw new AppError('Not authorized to access this transcript', 403);
         }
 
-        const transcript = await interviewService.getTranscript(interviewId);
+        const messages = await this.interviewService.getTranscript(interviewId);
 
-        res.status(200).json({
-            success: true,
-            data: { transcript }
-        });
+        this.handleSuccess(res, { messages }, 'Transcript retrieved successfully');
     });
 
-    // Text to Speech (ElevenLabs)
-    speak = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const { text, voiceId } = req.body;
-        // Input validation handled by SpeakSchema in route middleware
+    addTranscriptMessage = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const interviewId = req.params.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId);
 
-        const audioBuffer = await elevenLabsService.generateSpeech(text, voiceId);
+        if (!interview) {
+            throw new AppError('Interview not found', 404);
+        }
+
+        if (interview.user_id !== req.user!.id) {
+            throw new AppError('Not authorized to modify this transcript', 403);
+        }
+
+        const { role, content } = req.body;
+
+        if (!role || !content) {
+            throw new AppError('Role and content are required', 400);
+        }
+
+        if (role !== 'user' && role !== 'ai') {
+            throw new AppError('Role must be user or ai', 400);
+        }
+
+        const message = await this.interviewService.addTranscriptMessage(
+            interviewId,
+            role,
+            content
+        );
+
+        this.handleSuccess(res, { message }, 'Message added successfully', 201);
+    });
+
+    getTTSAudio = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const { text, type } = req.body;
+
+        if (!text) {
+            throw new AppError('Text is required', 400);
+        }
+
+        const audioBuffer = await this.elevenLabsService.generateSpeech(text, type as string);
 
         res.set({
             'Content-Type': 'audio/mpeg',
-            'Content-Length': audioBuffer.length
+            'Content-Length': audioBuffer.length.toString(),
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
         });
 
-        res.send(audioBuffer);
+        res.status(200).send(audioBuffer);
+    });
+
+    getUserStats = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const userId = req.user!.id as string;
+        const stats = await this.interviewService.getUserStats(userId);
+        
+        this.handleSuccess(res, { stats }, 'User stats retrieved successfully');
+    });
+
+    getLeaderboard = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const limitStr = req.query.limit as string;
+        const limit = limitStr ? parseInt(limitStr, 10) : 10;
+        
+        const leaderboard = await this.interviewService.getLeaderboard(limit);
+        
+        this.handleSuccess(res, { leaderboard }, 'Leaderboard retrieved successfully');
     });
 }
-
-export const interviewController = new InterviewController();

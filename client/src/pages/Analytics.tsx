@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { BarChart3, TrendingUp, Target, Clock, Brain, Mic } from 'lucide-react';
@@ -204,15 +204,18 @@ const Analytics = () => {
     fetchData();
   }, []);
 
-  // Derived chart data
-  const weeklyData = buildWeeklyData(interviewList);
-  const typeBreakdown = buildTypeBreakdown(interviewList);
-  const maxScore = Math.max(...weeklyData.map((d) => d.score), 1);
-  const hasWeeklyData = weeklyData.some((d) => d.score > 0);
+  // rerender-memo: Memoize derived chart data so it only recalculates when interviewList changes
+  const weeklyData = useMemo(() => buildWeeklyData(interviewList), [interviewList]);
+  const typeBreakdown = useMemo(() => buildTypeBreakdown(interviewList), [interviewList]);
+  const maxScore = useMemo(() => Math.max(...weeklyData.map((d) => d.score), 1), [weeklyData]);
+  const hasWeeklyData = useMemo(() => weeklyData.some((d) => d.score > 0), [weeklyData]);
 
-  const completedInterviews = interviewList
-    .filter((iv) => iv.status === 'completed')
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const completedInterviews = useMemo(() =>
+    interviewList
+      .filter((iv) => iv.status === 'completed')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [interviewList]
+  );
 
   return (
     <div className="min-h-screen bg-background text-white font-sans">

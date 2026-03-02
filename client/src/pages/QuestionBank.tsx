@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Search, Code } from 'lucide-react';
@@ -111,10 +111,14 @@ const QuestionBank = () => {
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
 
-  const filtered = questions.filter(q => 
-    q.title.toLowerCase().includes(search.toLowerCase()) &&
-    (difficultyFilter === 'all' || q.difficulty.toLowerCase() === difficultyFilter)
-  );
+  // rerender-memo + js-cache-property-access: memoize filter, cache lowered search
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase();
+    return questions.filter(q =>
+      q.title.toLowerCase().includes(term) &&
+      (difficultyFilter === 'all' || q.difficulty.toLowerCase() === difficultyFilter)
+    );
+  }, [search, difficultyFilter]);
 
   return (
     <div className="min-h-screen bg-background text-white font-sans">

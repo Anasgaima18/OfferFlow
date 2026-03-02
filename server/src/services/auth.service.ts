@@ -1,19 +1,17 @@
-import { supabaseAdmin } from '../config/supabase';
 import { AppError } from '../utils/appError';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { UserInput, IUser } from '../models/User';
-import { env } from '../config/env';
+import { config } from '../config/env';
+import { UserRepository } from '../repositories/UserRepository';
 
 export class AuthService {
+    constructor(private readonly userRepository: UserRepository) {}
+
     // Sign Up
     async signup(userData: UserInput): Promise<{ user: IUser; token: string }> {
         // Check if user already exists
-        const { data: existingUser } = await supabaseAdmin
-            .from('users')
-            .select('id')
-            .eq('email', userData.email)
-            .single();
+        const existingUser = await this.userRepository.findByEmail(userData.email);
 
         if (existingUser) {
             throw new AppError('Email already in use', 400);
@@ -22,26 +20,17 @@ export class AuthService {
         // Hash password
         const hashedPassword = await bcrypt.hash(userData.password, 12);
 
-        // Create user in Supabase
-        const { data: user, error } = await supabaseAdmin
-            .from('users')
-            .insert({
-                email: userData.email,
-                name: userData.name,
-                password: hashedPassword,
-                avatar: userData.avatar || null,
-            })
-            .select('id, email, name, avatar, created_at, updated_at')
-            .single();
+        // Create user
+        const user = await this.userRepository.create(userData, hashedPassword);
 
-        if (error || !user) {
-            throw new AppError(error?.message || 'Failed to create user', 500);
+        if (!user) {
+            throw new AppError('Failed to create user', 500);
         }
 
         // Generate JWT token
         const token = this.signToken(user.id);
 
-        return { user: user as IUser, token };
+        return { user, token };
     }
 
     // Login
@@ -51,13 +40,9 @@ export class AuthService {
         }
 
         // Find user by email (including password for verification)
-        const { data: user, error } = await supabaseAdmin
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
+        const user = await this.userRepository.findByEmail(email);
 
-        if (error || !user) {
+        if (!user || (!user.password)) {
             throw new AppError('Incorrect email or password', 401);
         }
 
@@ -76,21 +61,12 @@ export class AuthService {
 
     // Get user by ID (excludes password hash)
     async getUserById(id: string): Promise<IUser | null> {
-        const { data: user, error } = await supabaseAdmin
-            .from('users')
-            .select('id, email, name, avatar, created_at, updated_at')
-            .eq('id', id)
-            .single();
-
-        if (error) return null;
-        return user as IUser;
+        return await this.userRepository.findById(id);
     }
 
     private signToken(id: string): string {
-        return jwt.sign({ id, iat: Math.floor(Date.now() / 1000) }, env.JWT_SECRET, {
+        return jwt.sign({ id, iat: Math.floor(Date.now() / 1000) }, config.JWT_SECRET, {
             expiresIn: '24h',
         });
     }
 }
-
-export const authService = new AuthService();

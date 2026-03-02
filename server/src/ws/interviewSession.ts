@@ -3,11 +3,11 @@ import WebSocket, { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
 import { URL } from 'url';
 import { Logger } from '../utils/logger';
-import { sarvamService } from '../services/sarvam.service';
-import { elevenLabsService } from '../services/elevenlabs.service';
-import { interviewService } from '../services/interview.service';
-import { feedbackService } from '../services/feedback.service';
-import { env } from '../config/env';
+import { SarvamService } from '../services/sarvam.service';
+import { ElevenLabsService } from '../services/elevenlabs.service';
+import { InterviewService } from '../services/interview.service';
+import { FeedbackService } from '../services/feedback.service';
+import { config } from '../config/env';
 
 // --- Constants ---
 const MAX_CONVERSATION_HISTORY = 20;
@@ -41,7 +41,13 @@ function getSystemPrompt(interviewType: string): string {
  * Sets up the WebSocket server for real-time interview sessions.
  * Handles authentication, STT (Sarvam), TTS (ElevenLabs), and AI conversation.
  */
-export function setupWebSocket(server: http.Server): WebSocketServer {
+export function setupWebSocket(
+    server: http.Server,
+    interviewService: InterviewService,
+    sarvamService: SarvamService,
+    elevenLabsService: ElevenLabsService,
+    feedbackService: FeedbackService
+): WebSocketServer {
     const wss = new WebSocketServer({ server, path: '/api/v1/interviews/ws' });
 
     wss.on('connection', async (ws, req) => {
@@ -64,11 +70,20 @@ export function setupWebSocket(server: http.Server): WebSocketServer {
         ws.send(JSON.stringify({ type: 'auth_success' }));
 
         // --- B1: Load interview record and build dynamic system prompt ---
-        const interviewType = await initializeInterview(ws, interviewId, userId);
+        const interviewType = await initializeInterview(ws, interviewId, userId, interviewService);
         if (interviewType === null) return; // Forbidden or error
 
         // --- Start interview session ---
-        const session = new InterviewSession(ws, interviewId, userId, interviewType);
+        const session = new InterviewSession(
+            ws, 
+            interviewId, 
+            userId, 
+            interviewType,
+            interviewService,
+            sarvamService,
+            elevenLabsService,
+            feedbackService
+        );
         session.start();
     });
 
@@ -106,7 +121,7 @@ async function authenticateClient(ws: WebSocket): Promise<string | null> {
             return null;
         }
 
-        const decoded = jwt.verify(authData.token, env.JWT_SECRET) as { id: string };
+        const decoded = jwt.verify(authData.token, config.JWT_SECRET) as { id: string };
         Logger.info(`WebSocket authenticated for user: ${decoded.id}`);
         return decoded.id;
     } catch (err) {
@@ -124,7 +139,7 @@ async function authenticateClient(ws: WebSocket): Promise<string | null> {
  * Loads the interview record and verifies ownership.
  * Returns the interview type on success, or null on failure.
  */
-async function initializeInterview(ws: WebSocket, interviewId: string | null, userId: string): Promise<string | null> {
+async function initializeInterview(ws: WebSocket, interviewId: string | null, userId: string, interviewService: InterviewService): Promise<string | null> {
     let interviewType = 'technical';
 
     if (interviewId) {
@@ -172,7 +187,16 @@ class InterviewSession {
     private pendingUserText = '';
     private speechDebounce: ReturnType<typeof setTimeout> | null = null;
 
-    constructor(ws: WebSocket, interviewId: string | null, userId: string, interviewType: string) {
+    constructor(
+        ws: WebSocket, 
+        interviewId: string | null, 
+        userId: string, 
+        interviewType: string,
+        private interviewService: InterviewService,
+        private sarvamService: SarvamService,
+        private elevenLabsService: ElevenLabsService,
+        private feedbackService: FeedbackService
+    ) {
         this.ws = ws;
         this.interviewId = interviewId;
         this.userId = userId;
@@ -206,14 +230,14 @@ class InterviewSession {
     private async sendGreeting(): Promise<void> {
         try {
             this.conversationHistory.push({ role: 'user', content: 'Hello, I am ready for the interview.' });
-            const greetingResponse = await sarvamService.generateResponse(this.conversationHistory);
+            const greetingResponse = await this.sarvamService.generateResponse(this.conversationHistory);
             this.conversationHistory.push({ role: 'assistant', content: greetingResponse });
             this.greetingDone = true;
             Logger.info(`AI Greeting: "${greetingResponse.substring(0, 80)}..."`);
 
             if (this.interviewId) {
-                interviewService.addTranscriptMessage(this.interviewId, 'ai', greetingResponse)
-                    .catch(e => Logger.error('Failed to save greeting transcript', e));
+                this.interviewService.addTranscriptMessage(this.interviewId, 'ai', greetingResponse)
+                    .catch((e: unknown) => Logger.error('Failed to save greeting transcript', e));
                 this.hasTranscript = true;
             }
 
@@ -245,7 +269,7 @@ class InterviewSession {
         }
 
         if (!this.sarvamWs || this.sarvamWs.readyState !== WebSocket.OPEN) return;
-        sarvamService.sendAudio(this.sarvamWs, audioData);
+        this.sarvamService.sendAudio(this.sarvamWs, audioData);
     }
 
     private handleTextMessage(message: WebSocket.RawData): void {
@@ -279,7 +303,7 @@ class InterviewSession {
             const durationMin = Math.round(durationMs / 60000);
 
             try {
-                await interviewService.updateInterview(this.interviewId, { status: 'completed' });
+                await this.interviewService.updateInterview(this.interviewId, { status: 'completed' });
                 Logger.info(`Interview ${this.interviewId} completed (${durationMin} min)`);
             } catch (e) {
                 Logger.error('Failed to update interview status on disconnect', e);
@@ -288,7 +312,7 @@ class InterviewSession {
             // B5: Auto-generate feedback
             try {
                 Logger.info(`Auto-generating feedback for interview ${this.interviewId}...`);
-                await feedbackService.generateFeedback(this.interviewId);
+                await this.feedbackService.generateFeedback(this.interviewId);
                 Logger.info(`Feedback generated for interview ${this.interviewId}`);
             } catch (e) {
                 Logger.error('Failed to auto-generate feedback', e);
@@ -319,7 +343,7 @@ class InterviewSession {
 
             const audioChunks: Buffer[] = [];
 
-            this.ttsStream = elevenLabsService.createStreamingTTS(
+            this.ttsStream = this.elevenLabsService.createStreamingTTS(
                 DEFAULT_VOICE_ID,
                 (chunk) => { audioChunks.push(chunk); },
                 () => {
@@ -359,22 +383,22 @@ class InterviewSession {
         this.trimHistory();
 
         if (this.interviewId) {
-            interviewService.addTranscriptMessage(this.interviewId, 'user', userText)
-                .catch(e => Logger.error('Failed to save user transcript', e));
+            this.interviewService.addTranscriptMessage(this.interviewId, 'user', userText)
+                .catch((e: unknown) => Logger.error('Failed to save user transcript', e));
             this.hasTranscript = true;
         }
 
         this.ws.send(JSON.stringify({ type: 'ai_thinking' }));
 
         try {
-            const aiResponse = await sarvamService.generateResponse(this.conversationHistory);
+            const aiResponse = await this.sarvamService.generateResponse(this.conversationHistory);
             this.conversationHistory.push({ role: 'assistant', content: aiResponse });
             this.trimHistory();
             Logger.info(`AI Response: "${aiResponse.substring(0, 80)}..."`);
 
             if (this.interviewId) {
-                interviewService.addTranscriptMessage(this.interviewId, 'ai', aiResponse)
-                    .catch(e => Logger.error('Failed to save AI transcript', e));
+                this.interviewService.addTranscriptMessage(this.interviewId, 'ai', aiResponse)
+                    .catch((e: unknown) => Logger.error('Failed to save AI transcript', e));
             }
 
             this.ws.send(JSON.stringify({ type: 'ai_done' }));
@@ -395,7 +419,7 @@ class InterviewSession {
         this.sarvamConnecting = true;
 
         try {
-            this.sarvamWs = sarvamService.startStreamingSTT(
+            this.sarvamWs = this.sarvamService.startStreamingSTT(
                 async (data) => {
                     if (this.ws.readyState !== this.ws.OPEN) return;
                     this.sarvamReconnectAttempts = 0;

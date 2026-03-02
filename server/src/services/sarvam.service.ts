@@ -1,5 +1,6 @@
 import axios from 'axios';
 import FormData from 'form-data';
+import { config } from '../config/env';
 import WebSocket from 'ws';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
@@ -31,7 +32,7 @@ export class SarvamService {
   private baseUrl = 'https://api.sarvam.ai';
 
   constructor() {
-    this.apiKey = process.env.SARVAM_API_KEY || '';
+    this.apiKey = config.SARVAM_API_KEY || '';
     if (!this.apiKey) {
       Logger.warn('[SarvamService]: No API Key provided. Voice features will be mocked.');
     }

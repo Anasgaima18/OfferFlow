@@ -33,4 +33,4 @@ export function validateEnv(): Env {
  * Validated environment variables singleton.
  * Import this instead of reading process.env directly for type safety.
  */
-export const env = validateEnv();
+export const config = validateEnv();

@@ -1,21 +1,13 @@
-import { supabaseAdmin } from '../config/supabase';
 import { AppError } from '../utils/appError';
 import { IInterview, CreateInterviewInput, InterviewType, ITranscriptMessage } from '../models/Interview';
+import { InterviewRepository } from '../repositories/InterviewRepository';
 
 export class InterviewService {
+    constructor(private readonly interviewRepository: InterviewRepository) {}
+
     // Get all interviews for a user
     async getAllInterviews(userId: string): Promise<IInterview[]> {
-        const { data, error } = await supabaseAdmin
-            .from('interviews')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            throw new AppError(error.message, 500);
-        }
-
-        return (data || []) as IInterview[];
+        return await this.interviewRepository.findAllByUserId(userId);
     }
 
     // Create a new interview
@@ -26,33 +18,12 @@ export class InterviewService {
             throw new AppError('Invalid interview type', 400);
         }
 
-        const { data, error } = await supabaseAdmin
-            .from('interviews')
-            .insert({
-                user_id: input.user_id,
-                type: input.type,
-                status: 'pending' as const
-            })
-            .select()
-            .single();
-
-        if (error || !data) {
-            throw new AppError(error?.message || 'Failed to create interview', 500);
-        }
-
-        return data as IInterview;
+        return await this.interviewRepository.create(input);
     }
 
     // Get single interview by ID
     async getInterviewById(id: string): Promise<IInterview | null> {
-        const { data, error } = await supabaseAdmin
-            .from('interviews')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) return null;
-        return data as IInterview;
+        return await this.interviewRepository.findById(id);
     }
 
     // Update interview
@@ -63,52 +34,17 @@ export class InterviewService {
         if (updates.status !== undefined) updateData.status = updates.status;
         updateData.updated_at = new Date().toISOString();
 
-        const { data, error } = await supabaseAdmin
-            .from('interviews')
-            .update(updateData)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error || !data) {
-            throw new AppError(error?.message || 'Failed to update interview', 500);
-        }
-
-        return data as IInterview;
+        return await this.interviewRepository.update(id, updateData);
     }
 
     // Add transcript message
     async addTranscriptMessage(interviewId: string, role: 'user' | 'ai', content: string): Promise<ITranscriptMessage> {
-        const { data, error } = await supabaseAdmin
-            .from('transcript_messages')
-            .insert({
-                interview_id: interviewId,
-                role,
-                content
-            })
-            .select()
-            .single();
-
-        if (error || !data) {
-            throw new AppError(error?.message || 'Failed to add transcript message', 500);
-        }
-
-        return data as ITranscriptMessage;
+        return await this.interviewRepository.addTranscriptMessage(interviewId, role, content);
     }
 
     // Get transcript for an interview
     async getTranscript(interviewId: string): Promise<ITranscriptMessage[]> {
-        const { data, error } = await supabaseAdmin
-            .from('transcript_messages')
-            .select('*')
-            .eq('interview_id', interviewId)
-            .order('timestamp', { ascending: true });
-
-        if (error) {
-            throw new AppError(error.message, 500);
-        }
-
-        return (data || []) as ITranscriptMessage[];
+        return await this.interviewRepository.getTranscript(interviewId);
     }
 
     // Get user stats
@@ -118,46 +54,19 @@ export class InterviewService {
         averageScore: number;
         rank: number;
     }> {
-        const { data: interviews, error } = await supabaseAdmin
-            .from('interviews')
-            .select('score, status')
-            .eq('user_id', userId);
-
-        if (error) {
-            throw new AppError(error.message, 500);
-        }
-
-        const allInterviews = interviews || [];
+        const allInterviews = await this.interviewRepository.getUserStats(userId);
+        
         const completed = allInterviews.filter(i => i.status === 'completed');
         const scores = completed.filter(i => i.score !== null).map(i => i.score as number);
         const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
-        // Calculate rank by counting distinct users with higher average scores
-        // NOTE: Ideally use SQL aggregation (GROUP BY + AVG) via Supabase RPC for production scale
         let rank = 1;
         if (averageScore > 0) {
-            const { data: allUserInterviews } = await supabaseAdmin
-                .from('interviews')
-                .select('user_id, score')
-                .eq('status', 'completed')
-                .not('score', 'is', null)
-                .limit(5000);
-
-            if (allUserInterviews && allUserInterviews.length > 0) {
-                // Group by user and compute average scores
-                const userScores = new Map<string, number[]>();
-                for (const row of allUserInterviews) {
-                    if (!userScores.has(row.user_id)) userScores.set(row.user_id, []);
-                    userScores.get(row.user_id)!.push(row.score as number);
+            const leaderboard = await this.getLeaderboard(5000);
+            for (const entry of leaderboard) {
+                if (entry.averageScore > averageScore) {
+                    rank++;
                 }
-                // Count users with a strictly higher average
-                let usersAbove = 0;
-                for (const [uid, scoreList] of userScores) {
-                    if (uid === userId) continue;
-                    const avg = scoreList.reduce((a, b) => a + b, 0) / scoreList.length;
-                    if (avg > averageScore) usersAbove++;
-                }
-                rank = usersAbove + 1;
             }
         }
 
@@ -170,46 +79,32 @@ export class InterviewService {
     }
 
     // Get leaderboard
-    async getLeaderboard(limit: number = 10): Promise<Array<{
-        rank: number;
-        name: string;
-        avatar: string | null;
-        totalInterviews: number;
-        averageScore: number;
-    }>> {
-        // Get all completed interviews with user info
-        // NOTE: Ideally use SQL aggregation via Supabase RPC for production scale
-        const { data, error } = await supabaseAdmin
-            .from('interviews')
-            .select('user_id, score, users!inner(name, avatar)')
-            .eq('status', 'completed')
-            .not('score', 'is', null)
-            .limit(5000);
-
-        if (error) {
-            throw new AppError(error.message, 500);
-        }
-
-        // Aggregate by user
+    async getLeaderboard(limit: number = 10) {
+        const fullLeaderboard = await this.interviewRepository.getLeaderboard();
+        
         const userMap = new Map<string, { name: string; avatar: string | null; scores: number[]; count: number }>();
-        for (const row of (data || [])) {
+        for (const row of fullLeaderboard) {
             const userId = row.user_id;
-            const userInfo = row.users as unknown as { name: string; avatar: string | null };
+            const userInfo = Array.isArray(row.users) ? row.users[0] : row.users;
+            
             if (!userMap.has(userId)) {
-                userMap.set(userId, { name: userInfo.name, avatar: userInfo.avatar, scores: [], count: 0 });
+                userMap.set(userId, { name: userInfo?.name || 'Unknown', avatar: userInfo?.avatar_url || null, scores: [], count: 0 });
             }
             const entry = userMap.get(userId)!;
-            if (row.score !== null) entry.scores.push(row.score);
-            entry.count++;
+            
+            if (row.score !== null) {
+                entry.scores.push(row.score);
+                entry.count++;
+            }
         }
 
-        // Sort by average score
         const leaderboard = Array.from(userMap.entries())
+            .filter(([_k, data]) => data.count > 0)
             .map(([_userId, data]) => ({
                 name: data.name,
                 avatar: data.avatar,
                 totalInterviews: data.count,
-                averageScore: data.scores.length > 0 ? Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length) : 0,
+                averageScore: Math.round(data.scores.reduce((a, b) => a + b, 0) / data.count),
             }))
             .sort((a, b) => b.averageScore - a.averageScore)
             .slice(0, limit)
@@ -218,5 +113,3 @@ export class InterviewService {
         return leaderboard;
     }
 }
-
-export const interviewService = new InterviewService();

@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService } from '../services/auth.service';
-import { catchAsync } from '../utils/catchAsync';
+import { AuthService } from '../services/auth.service';
 import { UserSchemaZod } from '../models/User';
+import { AppError } from '../utils/appError';
+import { BaseController } from './BaseController';
+import { catchAsync } from '../utils/catchAsync';
 import { z } from 'zod';
 
 const LoginSchemaZod = z.object({
@@ -9,42 +11,36 @@ const LoginSchemaZod = z.object({
     password: z.string().min(1, 'Password is required'),
 });
 
-export class AuthController {
+export class AuthController extends BaseController {
+    constructor(private readonly authService: AuthService) {
+        super();
+    }
 
     signup = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        // 1) Validate Input
+        // Validate request body
         const validatedData = UserSchemaZod.parse(req.body);
 
-        // 2) Call Service
-        const { user, token } = await authService.signup(validatedData);
+        const result = await this.authService.signup(validatedData);
 
-        // 3) Send Response
-        res.status(201).json({
-            success: true,
-            token,
-            user
-        });
+        this.handleSuccess(res, result, 'User registered successfully', 201);
     });
 
     login = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const validatedData = LoginSchemaZod.parse(req.body);
+        const { email, password } = validatedData;
 
-        const { user, token } = await authService.login(validatedData.email, validatedData.password);
+        const result = await this.authService.login(email, password);
 
-        res.status(200).json({
-            success: true,
-            token,
-            user
-        });
+        this.handleSuccess(res, result, 'Logged in successfully');
     });
 
-    me = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        // req.user is set by the protect middleware
-        res.status(200).json({
-            success: true,
-            user: req.user
-        });
+    getCurrentUser = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const user = await this.authService.getUserById(req.user!.id);
+        
+        if (!user) {
+            throw new AppError('User not found', 404);
+        }
+        
+        this.handleSuccess(res, { user }, 'Current user retrieved');
     });
 }
-
-export const authController = new AuthController();
