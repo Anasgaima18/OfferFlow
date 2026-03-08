@@ -6,28 +6,63 @@ import env from '../config/env';
 
 export interface UserData {
     name?: string;
+  username?: string;
     email: string;
     password?: string;
     avatar?: string;
 }
 
-interface ApiResponse<T> {
+export interface ApiResponse<T> {
     success: boolean;
     data: T;
     message?: string;
 }
 
-// Flat response type for Auth
+// Flat response type for Auth wrapped in typicalApiResponse (already exists below, but let's change AuthResponse directly)
 interface AuthResponse {
-    success: boolean;
+  success: boolean;
+  data: {
     token: string;
     user: {
         id: string;
         name: string;
+    username?: string | null;
         email: string;
         avatar?: string;
     };
-    message?: string;
+  };
+  message?: string;
+}
+
+export type OAuthProvider = 'google' | 'github';
+
+export interface QuestionBankItem {
+  id: number;
+  title: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  company: string;
+  category: string;
+  acceptance: string;
+}
+
+export interface QuestionBankResponse {
+  questions: QuestionBankItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  categories: string[];
+}
+
+export interface DailyChallengeResponse {
+  date: string;
+  challenge: QuestionBankItem;
+}
+
+export interface ResumeReviewResponse {
+  score: number;
+  feedback: string[];
+  summary: string;
+  extractedTextLength: number;
 }
 
 export interface InterviewStats {
@@ -107,7 +142,12 @@ export const auth = {
   signup: (userData: UserData) =>
     api.post<AuthResponse>('/auth/signup', userData),
   me: () =>
-    api.get<ApiResponse<{ user: AuthResponse['user'] }>>('/auth/me'),
+    api.get<ApiResponse<{ user: AuthResponse['data']['user'] }>>('/auth/me'),
+  exchangeOAuth: (code: string) =>
+    api.post<AuthResponse>('/auth/oauth/exchange', { code }),
+  updateProfile: (userData: Partial<UserData>) =>
+    api.patch<ApiResponse<{ user: AuthResponse['data']['user'] }>>('/auth/me', userData),
+  getOAuthStartUrl: (provider: OAuthProvider) => `${env.API_URL}/auth/oauth/${provider}/start`,
 };
 
 export const interviews = {
@@ -127,6 +167,22 @@ export const interviews = {
     api.get<ApiResponse<{ feedback: FeedbackResponse, interview: IInterview }>>(`/interviews/${id}/feedback`),
   getTranscript: (id: string) =>
     api.get<ApiResponse<{ transcript: ITranscriptMessage[] }>>(`/interviews/${id}/transcript`),
+};
+
+export const content = {
+  getQuestions: (params?: { search?: string; difficulty?: string; category?: string; page?: number; pageSize?: number }) =>
+    api.get<ApiResponse<QuestionBankResponse>>('/content/questions', { params }),
+  getDailyChallenge: () =>
+    api.get<ApiResponse<DailyChallengeResponse>>('/content/daily-challenge'),
+  reviewResume: (file: File) => {
+    const formData = new FormData();
+    formData.append('resume', file);
+    return api.post<ApiResponse<ResumeReviewResponse>>('/content/resume-review', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 export default api;

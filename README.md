@@ -146,7 +146,8 @@ cd OfferFlow
 
 # 2. Set up the database
 #    → Create a Supabase project at https://supabase.com
-#    → Run server/supabase_schema.sql in the Supabase SQL Editor
+#    → Run server/supabase_schema.sql in the Supabase SQL Editor for a fresh setup
+#    → Run server/migrations/2026-03-08_oauth_content_leaderboard.sql for existing projects
 
 # 3. Configure environment variables
 cp server/.env.example server/.env
@@ -195,6 +196,12 @@ cp server/.env.example server/.env
 | `PORT` | No | Server listen port | `5000` |
 | `NODE_ENV` | No | Runtime environment | `development` |
 | `CLIENT_URL` | No | CORS allowed origins (comma-separated) | `http://localhost:5173` |
+| `API_BASE_URL` | No | Public backend base URL used for OAuth callbacks | `http://localhost:5000` |
+| `SENTRY_DSN` | No | Backend Sentry DSN | — |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID | — |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret | — |
+| `GITHUB_CLIENT_ID` | No | GitHub OAuth client ID | — |
+| `GITHUB_CLIENT_SECRET` | No | GitHub OAuth client secret | — |
 
 ### Client Environment Variables
 
@@ -204,6 +211,28 @@ VITE_WS_URL=ws://localhost:5000/api/v1/interviews/ws
 ```
 
 > **Security Note:** Never commit `.env` files. The `.gitignore` is pre-configured to exclude all environment files. Use `.env.example` as a reference template.
+
+### Production Rollout Notes
+
+For the OAuth, resume review, and SQL-backed leaderboard changes, complete this rollout sequence:
+
+```bash
+# Existing Supabase project
+# Apply the incremental migration in the Supabase SQL Editor
+server/migrations/2026-03-08_oauth_content_leaderboard.sql
+
+# Frontend validation
+cd client
+npm run lint
+npm run build
+npm run e2e
+
+# Backend validation
+cd ../server
+npm run build
+```
+
+The incremental migration adds OAuth-compatible user columns plus the `leaderboard_summary` view and `get_user_rank()` function used by the API.
 
 ---
 
@@ -230,7 +259,13 @@ OfferFlow/
 │   │   │   ├── AuthContext.ts       # Auth context definition
 │   │   │   └── AuthProvider.tsx     # Auth state provider
 │   │   ├── hooks/
-│   │   │   └── useAuth.ts           # Authentication hook
+│   │   │   ├── useAuth.ts           # Authentication hook
+│   │   │   ├── useContentQueries.ts # Content API query hooks
+│   │   │   ├── useInterviewQueries.ts # Interview API query hooks
+│   │   │   └── useAnimations.ts     # Animation helpers
+│   │   ├── lib/
+│   │   │   ├── cn.ts                # Classname utility
+│   │   │   └── queryClient.ts       # TanStack Query client config
 │   │   ├── pages/                   # Route-level page components
 │   │   │   ├── Landing.tsx          # Marketing landing page
 │   │   │   ├── Dashboard.tsx        # User dashboard
@@ -248,6 +283,7 @@ OfferFlow/
 │   │   ├── services/
 │   │   │   └── api.ts               # Axios HTTP client + interceptors
 │   │   └── types.ts                 # Shared TypeScript type definitions
+│   ├── tests/                       # Playwright E2E coverage
 │   ├── Dockerfile                   # Multi-stage production build
 │   ├── nginx.conf                   # Nginx reverse proxy config
 │   ├── tailwind.config.js           # TailwindCSS configuration
@@ -260,7 +296,8 @@ OfferFlow/
 │   │   │   ├── env.ts               # Environment validation (Zod)
 │   │   │   └── supabase.ts          # Supabase client singleton
 │   │   ├── controllers/
-│   │   │   ├── auth.controller.ts   # Signup, login, user retrieval
+│   │   │   ├── auth.controller.ts   # Signup, login, OAuth, user retrieval
+│   │   │   ├── content.controller.ts # Question bank, challenge, resume review
 │   │   │   ├── interview.controller.ts  # CRUD + interview lifecycle
 │   │   │   └── code.controller.ts   # Code execution proxy
 │   │   ├── middleware/
@@ -273,9 +310,11 @@ OfferFlow/
 │   │   │   └── Interview.ts         # Interview data model
 │   │   ├── routes/
 │   │   │   ├── auth.routes.ts       # Auth route definitions
-│   │   │   └── interview.routes.ts  # Interview route definitions
+│   │   │   ├── interview.routes.ts  # Interview route definitions
+│   │   │   └── content.routes.ts    # Content route definitions
 │   │   ├── services/
-│   │   │   ├── auth.service.ts      # Auth business logic
+│   │   │   ├── auth.service.ts      # JWT + OAuth auth logic
+│   │   │   ├── content.service.ts   # Question bank and resume review logic
 │   │   │   ├── interview.service.ts # Interview orchestration
 │   │   │   ├── feedback.service.ts  # AI feedback generation
 │   │   │   ├── sarvam.service.ts    # Sarvam AI integration
@@ -287,6 +326,7 @@ OfferFlow/
 │   │   │   ├── appError.ts          # Custom error class
 │   │   │   └── catchAsync.ts        # Async error wrapper
 │   │   └── index.ts                 # Application entry point
+│   ├── migrations/                  # Incremental SQL rollout scripts
 │   ├── supabase_schema.sql          # Database DDL + RLS policies
 │   ├── Dockerfile                   # Production container image
 │   └── tsconfig.json                # TypeScript configuration
@@ -314,6 +354,8 @@ OfferFlow/
 | `npm run build` | Type-check and build for production |
 | `npm run preview` | Preview production build locally |
 | `npm run lint` | Run ESLint across the codebase |
+| `npm run e2e` | Run Playwright end-to-end tests |
+| `npm run e2e:headed` | Run Playwright tests in headed mode |
 
 ---
 

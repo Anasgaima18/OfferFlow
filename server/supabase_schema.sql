@@ -6,8 +6,11 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    password TEXT NOT NULL,
+    username TEXT UNIQUE,
+    password TEXT,
     avatar TEXT DEFAULT '',
+    auth_provider TEXT DEFAULT 'local' CHECK (auth_provider IN ('local', 'google', 'github')),
+    provider_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -36,8 +39,29 @@ CREATE TABLE IF NOT EXISTS transcript_messages (
 -- Create indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_interviews_user_id ON interviews(user_id);
 CREATE INDEX IF NOT EXISTS idx_interviews_created_at ON interviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_interviews_completed_score ON interviews(status, score DESC) WHERE status = 'completed' AND score IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_transcript_interview_id ON transcript_messages(interview_id);
 CREATE INDEX IF NOT EXISTS idx_transcript_timestamp ON transcript_messages(timestamp);
+
+CREATE OR REPLACE VIEW leaderboard_summary AS
+SELECT
+    ROW_NUMBER() OVER (ORDER BY ROUND(AVG(i.score)) DESC, COUNT(*) DESC, MIN(i.created_at) ASC) AS rank,
+    u.id AS user_id,
+    u.name,
+    u.avatar,
+    COUNT(*)::int AS total_interviews,
+    ROUND(AVG(i.score))::int AS average_score
+FROM interviews i
+JOIN users u ON u.id = i.user_id
+WHERE i.status = 'completed' AND i.score IS NOT NULL
+GROUP BY u.id, u.name, u.avatar;
+
+CREATE OR REPLACE FUNCTION get_user_rank(target_user_id UUID)
+RETURNS INT
+LANGUAGE sql
+AS $$
+    SELECT rank FROM leaderboard_summary WHERE user_id = target_user_id LIMIT 1;
+$$;
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -98,3 +122,7 @@ SELECT 'OfferFlow schema created successfully!' as message;
 
 -- MIGRATION: If the users table already exists without a password column, run this:
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT NOT NULL DEFAULT '';
+-- ALTER TABLE users ALTER COLUMN password DROP NOT NULL;
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'local';
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id TEXT;

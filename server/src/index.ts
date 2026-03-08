@@ -22,6 +22,7 @@ import './config/supabase';
 // Import routes (after Supabase is initialized)
 import authRoutes from './routes/auth.routes';
 import interviewRoutes from './routes/interview.routes';
+import contentRoutes from './routes/content.routes';
 
 // Import Services for DI setup
 import { InterviewRepository } from './repositories/InterviewRepository';
@@ -34,6 +35,8 @@ const app: Express = express();
 const PORT = config.PORT;
 const isProduction = config.NODE_ENV === 'production';
 
+app.set('trust proxy', 1);
+
 // --- Security Middleware ---
 
 
@@ -41,6 +44,10 @@ const isProduction = config.NODE_ENV === 'production';
 const allowedOrigins = config.CLIENT_URL
     ? config.CLIENT_URL.split(',').map(o => o.trim())
     : ['http://localhost:5173'];
+
+if (!isProduction && !allowedOrigins.includes('http://localhost:5173')) {
+    allowedOrigins.push('http://localhost:5173');
+}
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -101,6 +108,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/interviews', interviewRoutes);
+app.use('/api/v1/content', contentRoutes);
 
 app.get('/', (_req: Request, res: Response) => {
     res.json({

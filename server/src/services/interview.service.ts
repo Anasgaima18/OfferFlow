@@ -52,16 +52,31 @@ export class InterviewService {
         totalInterviews: number;
         completedInterviews: number;
         averageScore: number;
+        highestScore: number;
         rank: number;
+        totalBehavioral: number;
+        totalTechnical: number;
+        totalSystemDesign: number;
+        interviewsByType: Record<string, number>;
     }> {
         const allInterviews = await this.interviewRepository.getUserStats(userId);
         
         const completed = allInterviews.filter(i => i.status === 'completed');
         const scores = completed.filter(i => i.score !== null).map(i => i.score as number);
         const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+        const highestScore = scores.length > 0 ? Math.max(...scores) : 0;
+        const interviewsByType = completed.reduce<Record<string, number>>((accumulator, interview) => {
+            accumulator[interview.type] = (accumulator[interview.type] || 0) + 1;
+            return accumulator;
+        }, {
+            behavioral: 0,
+            technical: 0,
+            'system-design': 0,
+        });
 
-        let rank = 1;
-        if (averageScore > 0) {
+        const sqlRank = await this.interviewRepository.getUserRank(userId);
+        let rank = sqlRank ?? 1;
+        if (sqlRank === null && averageScore > 0) {
             const leaderboard = await this.getLeaderboard(5000);
             for (const entry of leaderboard) {
                 if (entry.averageScore > averageScore) {
@@ -74,13 +89,31 @@ export class InterviewService {
             totalInterviews: allInterviews.length,
             completedInterviews: completed.length,
             averageScore,
-            rank
+            highestScore,
+            rank,
+            totalBehavioral: interviewsByType.behavioral || 0,
+            totalTechnical: interviewsByType.technical || 0,
+            totalSystemDesign: interviewsByType['system-design'] || 0,
+            interviewsByType,
         };
     }
 
     // Get leaderboard
     async getLeaderboard(limit: number = 10) {
         const fullLeaderboard = await this.interviewRepository.getLeaderboard();
+
+        const firstLeaderboardEntry = fullLeaderboard[0];
+
+        if (firstLeaderboardEntry && firstLeaderboardEntry.average_score !== undefined) {
+            return fullLeaderboard.slice(0, limit).map((entry, index) => ({
+                rank: entry.rank ?? index + 1,
+                userId: entry.user_id,
+                name: entry.name || 'Unknown',
+                avatar: entry.avatar || null,
+                totalInterviews: entry.total_interviews || 0,
+                averageScore: Math.round(entry.average_score || 0),
+            }));
+        }
         
         const userMap = new Map<string, { name: string; avatar: string | null; scores: number[]; count: number }>();
         for (const row of fullLeaderboard) {

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import BlurFade from '../components/ui/BlurFade';
+import SurfaceCard from '../components/ui/SurfaceCard';
 import { Trophy, Target, Flame, Star, Award, Zap, Clock, Code } from 'lucide-react';
-import { interviews, InterviewStats } from '../services/api';
+import { type InterviewStats } from '../services/api';
+import { useInterviewStatsQuery } from '../hooks/useInterviewQueries';
 
 interface AchievementDef {
   id: number;
@@ -85,41 +87,9 @@ const achievementDefs: AchievementDef[] = [
 ];
 
 const Achievements = () => {
-  const [stats, setStats] = useState<InterviewStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await interviews.getStats();
-        const data = response.data.data;
-        setStats({
-          totalInterviews: data.totalInterviews || 0,
-          completedInterviews: data.completedInterviews || 0,
-          averageScore: data.averageScore || 0,
-          highestScore: data.highestScore || 0,
-          totalBehavioral: data.totalBehavioral || 0,
-          totalTechnical: data.totalTechnical || 0,
-          totalSystemDesign: data.totalSystemDesign || 0,
-        });
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-        setStats({
-          totalInterviews: 0,
-          completedInterviews: 0,
-          averageScore: 0,
-          highestScore: 0,
-          totalBehavioral: 0,
-          totalTechnical: 0,
-          totalSystemDesign: 0,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
+  const statsQuery = useInterviewStatsQuery();
+  const stats = (statsQuery.data ?? null) as InterviewStats | null;
+  const isLoading = statsQuery.isLoading;
 
   if (isLoading) {
     return (
@@ -162,8 +132,9 @@ const Achievements = () => {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {badges.map((badge) => (
-              <div
+            {badges.map((badge, index) => (
+              <BlurFade key={badge.id} delay={index * 0.04}>
+              <SurfaceCard
                 key={badge.id}
                 className={`p-6 rounded-xl border transition-all ${
                   badge.earned
@@ -207,7 +178,8 @@ const Achievements = () => {
                     )}
                   </div>
                 </div>
-              </div>
+              </SurfaceCard>
+              </BlurFade>
             ))}
           </div>
         </div>

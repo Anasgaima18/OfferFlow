@@ -436,7 +436,7 @@ const InterviewRoom: React.FC = () => {
 
             const data = await response.json();
             if (data.success) {
-                setOutput(data.output);
+                setOutput(data.data?.output ?? 'Execution completed with no output.');
                 toast.success('Code executed successfully');
             } else {
                 setOutput(`Error: ${data.message}`);
@@ -458,7 +458,7 @@ const InterviewRoom: React.FC = () => {
             }
         };
         window.addEventListener('click', handleGesture);
-        window.addEventListener('touchstart', handleGesture);
+        window.addEventListener('touchstart', handleGesture, { passive: true });
         return () => {
             window.removeEventListener('click', handleGesture);
             window.removeEventListener('touchstart', handleGesture);
@@ -506,9 +506,9 @@ const InterviewRoom: React.FC = () => {
 
             <div className="flex-1 flex flex-col lg:flex-row pt-16 overflow-y-auto lg:overflow-hidden">
                 {/* Left Panel: Media & Context */}
-                <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-zinc-800 flex flex-col min-h-[500px] lg:min-h-0">
+                <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-zinc-800 flex flex-col min-h-125 lg:min-h-0">
                     {/* AI/Question Area */}
-                    <div className="h-1/2 p-6 border-b border-zinc-800 flex flex-col min-h-[300px]">
+                    <div className="h-1/2 p-6 border-b border-zinc-800 flex flex-col min-h-75">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-gray-400 font-mono text-sm uppercase tracking-tighter">
                                 {interview ? typeLabel[interview.type] || interview.type : 'INTERVIEW'}
@@ -547,7 +547,7 @@ const InterviewRoom: React.FC = () => {
                         <h3 className="text-xl font-bold mb-4">
                             {interview ? typeLabel[interview.type] || 'Interview Session' : 'Loading...'}
                         </h3>
-                        <p className="text-gray-300 leading-relaxed mb-6 overflow-y-auto max-h-[120px] lg:max-h-none lg:flex-1">
+                        <p className="text-gray-300 leading-relaxed mb-6 overflow-y-auto max-h-30 lg:max-h-none lg:flex-1">
                             {interview?.type === 'technical'
                                 ? 'Solve the coding challenge presented by the AI interviewer. Explain your thought process as you code.'
                                 : interview?.type === 'behavioral'
@@ -558,7 +558,7 @@ const InterviewRoom: React.FC = () => {
                         {/* Transcript Area — F4: Partial transcripts, F6: Auto-scroll */}
                         <div
                             ref={transcriptRef}
-                            className="bg-zinc-900/50 rounded-xl p-4 flex-1 overflow-y-auto font-mono text-xs text-gray-400 whitespace-pre-wrap border border-zinc-800/50 mb-4 min-h-[80px]"
+                            className="bg-zinc-900/50 rounded-xl p-4 flex-1 overflow-y-auto font-mono text-xs text-gray-400 whitespace-pre-wrap border border-zinc-800/50 mb-4 min-h-20"
                         >
                             {transcript || (
                                 <span className="text-zinc-600 italic">Waiting for interview to start...</span>
@@ -604,7 +604,7 @@ const InterviewRoom: React.FC = () => {
                     </div>
 
                     {/* User Video Area */}
-                    <div className="h-1/2 bg-black relative p-4 flex items-center justify-center overflow-hidden min-h-[250px]">
+                    <div className="h-1/2 bg-black relative p-4 flex items-center justify-center overflow-hidden min-h-[250px] sm:min-h-62 lg:min-h-0">
                         <video
                             ref={videoRef}
                             autoPlay

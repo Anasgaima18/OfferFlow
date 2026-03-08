@@ -15,6 +15,7 @@ const Privacy = lazy(() => import('./pages/Privacy'));
 const Features = lazy(() => import('./pages/Features'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
+const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const Profile = lazy(() => import('./pages/Profile'));
 const InterviewSetup = lazy(() => import('./pages/InterviewSetup'));
 const Achievements = lazy(() => import('./pages/Achievements'));
@@ -53,6 +54,7 @@ function App() {
                 <Route path="/features" element={<Features />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/oauth/callback" element={<OAuthCallback />} />
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/tips" element={<Tips />} />
                 <Route path="/terms" element={<Terms />} />

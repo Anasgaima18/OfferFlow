@@ -1,43 +1,19 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Button from '../components/ui/Button';
+import BlurFade from '../components/ui/BlurFade';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import StatTile from '../components/ui/StatTile';
 import { Mail, Calendar, Trophy, Target, Clock, Edit2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { interviews, InterviewStats } from '../services/api';
+import { useInterviewStatsQuery } from '../hooks/useInterviewQueries';
 
 const Profile = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState<InterviewStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        const [statsRes, interviewsRes] = await Promise.all([
-          interviews.getStats(),
-          interviews.getAll(),
-        ]);
-
-        const statsData = statsRes.data.data;
-        const interviewList = interviewsRes.data.data?.interviews || [];
-
-        // Cast to InterviewStats if necessary or destructure 
-        setStats({
-          totalInterviews: interviewList.length || statsData.totalInterviews || 0,
-          averageScore: statsData.averageScore || 0,
-          completedInterviews: statsData.completedInterviews || 0,
-        });
-      } catch (error) {
-        console.error('Failed to fetch profile data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProfileData();
-  }, []);
+  const statsQuery = useInterviewStatsQuery();
+  const stats = statsQuery.data;
+  const isLoading = statsQuery.isLoading;
 
   if (isLoading) {
     return (
@@ -67,7 +43,8 @@ const Profile = () => {
       <main className="pt-32 pb-24 px-4">
         <div className="max-w-4xl mx-auto">
           {/* Profile Header */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-8">
+          <BlurFade>
+          <SurfaceCard className="p-8 mb-8">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
               {/* Avatar */}
               <div className="relative">
@@ -96,29 +73,19 @@ const Profile = () => {
                 </Link>
               </div>
             </div>
-          </div>
+          </SurfaceCard>
+          </BlurFade>
 
           {/* Stats Grid */}
           <div className="grid md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 text-center">
-              <Trophy className="w-8 h-8 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold">{stats?.totalInterviews ?? 0}</div>
-              <div className="text-sm text-zinc-400">Total Interviews</div>
-            </div>
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 text-center">
-              <Target className="w-8 h-8 text-secondary mx-auto mb-2" />
-              <div className="text-2xl font-bold">{stats?.averageScore ?? 0}%</div>
-              <div className="text-sm text-zinc-400">Average Score</div>
-            </div>
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 text-center">
-              <Clock className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{stats?.completedInterviews ?? 0}</div>
-              <div className="text-sm text-zinc-400">Completed</div>
-            </div>
+            <BlurFade delay={0.05}><StatTile icon={<Trophy className="w-6 h-6 text-primary" />} label="Total Interviews" value={String(stats?.totalInterviews ?? 0)} accentClassName="text-primary" /></BlurFade>
+            <BlurFade delay={0.1}><StatTile icon={<Target className="w-6 h-6 text-secondary" />} label="Average Score" value={`${stats?.averageScore ?? 0}%`} accentClassName="text-secondary" /></BlurFade>
+            <BlurFade delay={0.15}><StatTile icon={<Clock className="w-6 h-6 text-purple-400" />} label="Completed" value={String(stats?.completedInterviews ?? 0)} accentClassName="text-purple-400" /></BlurFade>
           </div>
 
           {/* Resume Upload */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8">
+          <BlurFade delay={0.2}>
+          <SurfaceCard className="p-8">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
               <Edit2 size={20} /> Resume
             </h2>
@@ -143,7 +110,8 @@ const Profile = () => {
             <p className="text-xs text-zinc-600 mt-3">
               Supported formats: PDF, DOC, DOCX (max 5MB)
             </p>
-          </div>
+          </SurfaceCard>
+          </BlurFade>
         </div>
       </main>
 

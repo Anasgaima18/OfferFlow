@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Plus, Clock, Terminal, Trophy, ChevronRight, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { interviews } from '../services/api';
-import { IInterview } from '../types';
+import { useInterviewStatsQuery, useUserInterviewsQuery } from '../hooks/useInterviewQueries';
 import { toast } from 'sonner';
+import { useFadeIn, useStaggerFadeIn } from '../hooks/useAnimations';
 
 // rendering-hoist-jsx: Icons hoisted to module-level to avoid re-creation per render
 const STAT_ICONS = {
@@ -14,13 +14,6 @@ const STAT_ICONS = {
     score: <Terminal size={20} />,
     rank: <Trophy size={20} />,
 } as const;
-
-interface DashboardStats {
-    totalInterviews: number;
-    completedInterviews: number;
-    averageScore: number | null;
-    rank?: number;
-}
 
 const StatSkeleton: React.FC = () => (
     <div className="glass-card p-6 animate-pulse">
@@ -51,31 +44,29 @@ const RowSkeleton: React.FC = () => (
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    
+    const headerRef = useRef<HTMLDivElement>(null);
+    const statsGridRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
+    const quickActionsRef = useRef<HTMLDivElement>(null);
 
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [recentInterviews, setRecentInterviews] = useState<IInterview[]>([]);
-    const [loading, setLoading] = useState(true);
+    useFadeIn(headerRef, 0.1);
+    useStaggerFadeIn(statsGridRef, '.stat-card', 0.2);
+    useStaggerFadeIn(listRef, '.interview-row', 0.3);
+    useStaggerFadeIn(quickActionsRef, '.qa-card', 0.4);
+
+    const statsQuery = useInterviewStatsQuery();
+    const interviewsQuery = useUserInterviewsQuery();
+    const stats = statsQuery.data ?? null;
+    const recentInterviews = interviewsQuery.data ?? [];
+    const loading = statsQuery.isLoading || interviewsQuery.isLoading;
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            try {
-                const [statsRes, interviewsRes] = await Promise.all([
-                    interviews.getStats(),
-                    interviews.getAll(),
-                ]);
-
-                setStats(statsRes.data.data);
-                setRecentInterviews(interviewsRes.data.data.interviews);
-            } catch (error) {
-                console.error('Failed to load dashboard data:', error);
-                toast.error('Failed to load dashboard data. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchDashboardData();
-    }, []);
+        if (statsQuery.error || interviewsQuery.error) {
+            console.error('Failed to load dashboard data:', statsQuery.error || interviewsQuery.error);
+            toast.error('Failed to load dashboard data. Please try again.');
+        }
+    }, [statsQuery.error, interviewsQuery.error]);
 
     const formatDate = (dateString: string): string => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -160,7 +151,7 @@ const Dashboard: React.FC = () => {
 
             <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
+                <div ref={headerRef} className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
                     <div>
                         <h1 className="font-pixel text-3xl tracking-wider text-white mb-2">DASHBOARD</h1>
                         <p className="text-gray-400 font-mono text-sm">
@@ -177,13 +168,13 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div ref={statsGridRef} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                     {loading
                         ? Array.from({ length: 3 }).map((_, i) => <StatSkeleton key={i} />)
-                        : statCards.map((stat, i) => (
+                        : statCards.map((stat) => (
                               <div
-                                  key={i}
-                                  className="glass-card p-6 hover:-translate-y-1 transition-all duration-300"
+                                  key={stat.label}
+                                  className="stat-card glass-card p-6 hover:-translate-y-1 transition-all duration-300"
                               >
                                   <div className="flex items-center justify-between mb-4">
                                       <span className="text-gray-400 text-xs font-mono uppercase tracking-wider">
@@ -212,7 +203,7 @@ const Dashboard: React.FC = () => {
                         </Link>
                     </div>
 
-                    <div className="divide-y divide-white/5">
+                    <div ref={listRef} className="divide-y divide-white/5">
                         {loading ? (
                             Array.from({ length: 3 }).map((_, i) => <RowSkeleton key={i} />)
                         ) : recentInterviews.length === 0 ? (
@@ -233,7 +224,15 @@ const Dashboard: React.FC = () => {
                                 <div
                                     key={interview.id}
                                     onClick={() => navigate(`/feedback/${interview.id}`)}
-                                    className="p-6 hover:bg-white/5 transition-colors flex items-center justify-between cursor-pointer"
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            navigate(`/feedback/${interview.id}`);
+                                        }
+                                    }}
+                                    role="button"
+                                    tabIndex={0}
+                                    className="interview-row p-6 hover:bg-white/5 transition-colors flex items-center justify-between cursor-pointer"
                                 >
                                     <div className="flex items-center gap-4">
                                         <div
@@ -282,10 +281,10 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="mt-8 grid md:grid-cols-2 gap-6">
+                <div ref={quickActionsRef} className="mt-8 grid md:grid-cols-2 gap-6">
                     <Link
                         to="/leaderboard"
-                        className="glass-card p-6 hover:-translate-y-1 transition-all duration-300 group"
+                        className="qa-card glass-card p-6 hover:-translate-y-1 transition-all duration-300 group"
                     >
                         <div className="flex items-center justify-between">
                             <div>

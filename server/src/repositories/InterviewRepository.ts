@@ -56,7 +56,7 @@ export class InterviewRepository {
 
     async addTranscriptMessage(interviewId: string, role: 'user' | 'ai', content: string): Promise<ITranscriptMessage> {
         const { data, error } = await supabaseAdmin
-            .from('transcripts')
+            .from('transcript_messages')
             .insert([{
                 interview_id: interviewId,
                 role,
@@ -71,10 +71,10 @@ export class InterviewRepository {
 
     async getTranscript(interviewId: string): Promise<ITranscriptMessage[]> {
         const { data, error } = await supabaseAdmin
-            .from('transcripts')
+            .from('transcript_messages')
             .select('*')
             .eq('interview_id', interviewId)
-            .order('created_at', { ascending: true });
+            .order('timestamp', { ascending: true });
 
         if (error) throw error;
         return data as ITranscriptMessage[];
@@ -83,7 +83,7 @@ export class InterviewRepository {
     async getUserStats(userId: string) {
         const { data, error } = await supabaseAdmin
             .from('interviews')
-            .select('score, status')
+            .select('score, status, type')
             .eq('user_id', userId);
 
         if (error) throw error;
@@ -92,16 +92,37 @@ export class InterviewRepository {
 
     async getLeaderboard(limit: number = 10): Promise<Array<{
         user_id: string;
+        rank?: number;
         score: number | null;
-        users: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[];
+        users?: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[];
+        name?: string;
+        avatar?: string | null;
+        total_interviews?: number;
+        average_score?: number;
     }>> {
-        // Query users with their total completed interviews and average score
+        const viewResult = await supabaseAdmin
+            .from('leaderboard_summary')
+            .select('rank, user_id, name, avatar, total_interviews, average_score')
+            .limit(limit);
+
+        if (!viewResult.error) {
+            return (viewResult.data || []).map((row: any) => ({
+                user_id: row.user_id,
+                rank: row.rank,
+                score: row.average_score,
+                name: row.name,
+                avatar: row.avatar,
+                total_interviews: row.total_interviews,
+                average_score: row.average_score,
+            }));
+        }
+
         const { data, error } = await supabaseAdmin
             .from('interviews')
             .select(`
                 user_id,
                 score,
-                users!inner(name, avatar_url)
+                users!inner(name, avatar)
             `)
             .eq('status', 'completed')
             .not('score', 'is', null)
@@ -109,5 +130,17 @@ export class InterviewRepository {
 
         if (error) throw error;
         return data as any;
+    }
+
+    async getUserRank(userId: string): Promise<number | null> {
+        const { data, error } = await supabaseAdmin.rpc('get_user_rank', {
+            target_user_id: userId,
+        });
+
+        if (!error) {
+            return typeof data === 'number' ? data : null;
+        }
+
+        return null;
     }
 }

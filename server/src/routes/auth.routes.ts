@@ -13,12 +13,16 @@ const userRepository = new UserRepository();
 const authService = new AuthService(userRepository);
 const authController = new AuthController(authService);
 
-router.post('/signup', validate(UserSchemaZod), authController.signup);
-router.post('/login', authController.login);
+router.post('/signup', authLimiter, validate(UserSchemaZod), authController.signup);
+router.post('/login', authLimiter, authController.login);
+router.get('/oauth/:provider/start', authController.startOAuth);
+router.get('/oauth/:provider/callback', authController.oauthCallback);
+router.post('/oauth/exchange', authLimiter, authController.exchangeOAuth);
 
 // Protect all routes after this middleware
 router.use(protect(authService));
 
 router.get('/me', authController.getCurrentUser);
+router.patch('/me', authController.updateCurrentUser);
 
 export default router;

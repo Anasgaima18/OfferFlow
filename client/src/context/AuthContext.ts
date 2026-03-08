@@ -3,6 +3,7 @@ import { createContext } from 'react';
 export interface User {
   id: string;
   name: string;
+  username?: string | null;
   email: string;
   avatar?: string;
 }

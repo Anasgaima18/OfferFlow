@@ -104,7 +104,7 @@ export class InterviewController extends BaseController {
 
         const messages = await this.interviewService.getTranscript(interviewId);
 
-        this.handleSuccess(res, { messages }, 'Transcript retrieved successfully');
+        this.handleSuccess(res, { transcript: messages }, 'Transcript retrieved successfully');
     });
 
     addTranscriptMessage = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
@@ -161,7 +161,7 @@ export class InterviewController extends BaseController {
         const userId = req.user!.id as string;
         const stats = await this.interviewService.getUserStats(userId);
         
-        this.handleSuccess(res, { stats }, 'User stats retrieved successfully');
+        this.handleSuccess(res, stats, 'User stats retrieved successfully');
     });
 
     getLeaderboard = catchAsync(async (req: Request, res: Response, next: NextFunction) => {

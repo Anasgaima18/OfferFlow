@@ -3,28 +3,27 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Button from '../components/ui/Button';
 import { FileText, Upload, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { content } from '../services/api';
 
 const ResumeReview = () => {
-  const [uploaded, setUploaded] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [results, setResults] = useState<null | { score: number; feedback: string[] }>(null);
+  const [results, setResults] = useState<null | { score: number; feedback: string[]; summary: string; extractedTextLength: number }>(null);
 
-  const handleUpload = () => {
-    setUploaded(true);
+  const handleUpload = async (file: File) => {
+    setUploadedFile(file);
     setAnalyzing(true);
-    setTimeout(() => {
+    try {
+      const response = await content.reviewResume(file);
+      setResults(response.data.data);
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Resume review failed');
+      setUploadedFile(null);
+    } finally {
       setAnalyzing(false);
-      setResults({
-        score: 78,
-        feedback: [
-          '✅ Strong action verbs used throughout',
-          '✅ Quantifiable achievements present',
-          '⚠️ Consider adding more technical skills',
-          '⚠️ Summary could be more impactful',
-          '❌ Missing links to projects/portfolio',
-        ]
-      });
-    }, 2000);
+    }
   };
 
   return (
@@ -35,15 +34,28 @@ const ResumeReview = () => {
           <h1 className="text-4xl font-bold mb-4 flex items-center gap-3"><FileText className="text-primary" /> Resume Review</h1>
           <p className="text-zinc-400 mb-8">Get AI-powered feedback on your resume in seconds</p>
 
-          {!uploaded ? (
-            <div 
-              onClick={handleUpload}
+          {!uploadedFile ? (
+            <button
+              type="button"
+              onClick={() => document.getElementById('resume-upload-input')?.click()}
               className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
             >
+              <input
+                id="resume-upload-input"
+                type="file"
+                accept=".pdf,.docx"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    void handleUpload(file);
+                  }
+                }}
+              />
               <Upload className="w-12 h-12 text-zinc-500 mx-auto mb-4" />
               <p className="text-lg font-medium mb-2">Drop your resume here</p>
               <p className="text-sm text-zinc-500">PDF, DOCX up to 5MB</p>
-            </div>
+            </button>
           ) : analyzing ? (
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-12 text-center">
               <Sparkles className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
@@ -61,9 +73,10 @@ const ResumeReview = () => {
                   {results.score}%
                 </div>
               </div>
+              <p className="text-zinc-300 mb-6 leading-relaxed">{results.summary}</p>
               <div className="space-y-3">
-                {results.feedback.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-3 text-sm">
+                {results.feedback.map((item) => (
+                  <div key={item} className="flex items-start gap-3 text-sm">
                     {item.startsWith('✅') ? <CheckCircle className="text-green-400 shrink-0" size={18} /> : 
                      item.startsWith('⚠️') ? <AlertCircle className="text-yellow-400 shrink-0" size={18} /> :
                      <AlertCircle className="text-red-400 shrink-0" size={18} />}
@@ -71,7 +84,10 @@ const ResumeReview = () => {
                   </div>
                 ))}
               </div>
-              <Button variant="primary" className="w-full mt-6" onClick={() => { setUploaded(false); setResults(null); }}>
+              <p className="text-xs text-zinc-500 mt-6">
+                Parsed {results.extractedTextLength.toLocaleString()} characters from {uploadedFile.name}
+              </p>
+              <Button variant="primary" className="w-full mt-6" onClick={() => { setUploadedFile(null); setResults(null); }}>
                 Upload Another Resume
               </Button>
             </div>

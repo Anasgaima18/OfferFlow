@@ -1,18 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Trophy, Medal, Crown } from 'lucide-react';
-import { interviews } from '../services/api';
+import { useLeaderboardQuery } from '../hooks/useInterviewQueries';
 import { toast } from 'sonner';
-
-interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  name: string;
-  avatar?: string;
-  totalInterviews: number;
-  averageScore: number;
-}
+import { useFadeIn, useStaggerFadeIn } from '../hooks/useAnimations';
 
 const RankIcon = ({ rank }: { rank: number }) => {
   if (rank === 1) return <Crown size={20} className="text-yellow-400" />;
@@ -22,24 +14,22 @@ const RankIcon = ({ rank }: { rank: number }) => {
 };
 
 const Leaderboard = () => {
-  const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const leaderboardQuery = useLeaderboardQuery();
+  const leaders = leaderboardQuery.data ?? [];
+  const isLoading = leaderboardQuery.isLoading;
+  
+  const headerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useFadeIn(headerRef, 0.1);
+  useStaggerFadeIn(listRef, '.user-row', 0.2);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      try {
-        const response = await interviews.getLeaderboard();
-        setLeaders(response.data.data.leaderboard);
-      } catch (error) {
-        console.error('Failed to fetch leaderboard:', error);
-        toast.error('Failed to load leaderboard. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLeaderboard();
-  }, []);
+    if (leaderboardQuery.error) {
+      console.error('Failed to fetch leaderboard:', leaderboardQuery.error);
+      toast.error('Failed to load leaderboard. Please try again.');
+    }
+  }, [leaderboardQuery.error]);
 
   return (
     <div className="min-h-screen bg-background text-white font-sans">
@@ -48,7 +38,7 @@ const Leaderboard = () => {
       <main className="pt-32 pb-24 px-4">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12">
+          <div ref={headerRef} className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
               <Trophy size={16} className="text-primary" />
               <span className="text-sm font-mono text-gray-300">Weekly Rankings</span>
@@ -80,7 +70,7 @@ const Leaderboard = () => {
           ) : (
             <>
               {/* Leaderboard Table */}
-              <div className="glass-card overflow-hidden">
+              <div ref={listRef} className="glass-card overflow-hidden">
                 {/* Header Row */}
                 <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5">
                   <div className="col-span-2 text-center text-xs font-mono text-gray-500 uppercase tracking-wider">Rank</div>
@@ -93,7 +83,7 @@ const Leaderboard = () => {
                 {leaders.map((user, idx) => (
                   <div
                     key={user.userId}
-                    className={`grid grid-cols-12 gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors items-center ${idx < 3 ? 'bg-white/2' : ''}`}
+                    className={`user-row grid grid-cols-12 gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors items-center ${idx < 3 ? 'bg-white/2' : ''}`}
                   >
                     <div className="col-span-2 flex justify-center">
                       <RankIcon rank={user.rank} />

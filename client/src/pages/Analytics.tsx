@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { BarChart3, TrendingUp, Target, Clock, Brain, Mic } from 'lucide-react';
-import { interviews, InterviewStats } from '../services/api';
 import { IInterview } from '../types';
+import { useInterviewStatsQuery, useUserInterviewsQuery } from '../hooks/useInterviewQueries';
 
 interface DayData {
   day: string;
@@ -122,8 +122,8 @@ const ChartSkeleton = () => {
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
       <SkeletonBlock className="h-5 w-40 mb-6" />
       <div className="flex items-end justify-between h-40 gap-2">
-        {heights.map((h, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center">
+        {heights.map((h) => (
+          <div key={h} className="flex-1 flex flex-col items-center">
             <SkeletonBlock
               className="w-full rounded-t-md"
               style={{ height: `${h}%` } as React.CSSProperties}
@@ -170,39 +170,37 @@ const TableSkeleton = () => (
 );
 
 /* ---------- Main Component ---------- */
+import { useFadeIn, useStaggerFadeIn } from '../hooks/useAnimations';
 
 const Analytics = () => {
-  const [stats, setStats] = useState<InterviewStats | null>(null);
-  const [interviewList, setInterviewList] = useState<IInterview[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const statsQuery = useInterviewStatsQuery();
+  const interviewsQuery = useUserInterviewsQuery();
+  const stats = statsQuery.data ?? null;
+  const interviewList = useMemo(() => interviewsQuery.data ?? [], [interviewsQuery.data]);
+  const loading = statsQuery.isLoading || interviewsQuery.isLoading;
+  const error = useMemo(() => {
+    if (statsQuery.error || interviewsQuery.error) {
+      return 'Failed to load analytics data. Please try again later.';
+    }
+
+    return null;
+  }, [statsQuery.error, interviewsQuery.error]);
+  
+  const headerRef = useRef<HTMLDivElement>(null);
+  const statsGridRef = useRef<HTMLDivElement>(null);
+  const chartsRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  useFadeIn(headerRef, 0.1);
+  useStaggerFadeIn(statsGridRef, '.stat-card', 0.2);
+  useStaggerFadeIn(chartsRef, '.chart-card', 0.3);
+  useStaggerFadeIn(tableRef, '.table-row-card', 0.4);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const [statsRes, interviewsRes] = await Promise.all([
-          interviews.getStats(),
-          interviews.getAll(),
-        ]);
-
-        const statsData = statsRes.data?.data as InterviewStats;
-        const interviewsData = (interviewsRes.data?.data?.interviews ?? []) as IInterview[];
-
-        setStats(statsData);
-        setInterviewList(interviewsData);
-      } catch (err: unknown) {
-        console.error('Failed to load analytics data:', err);
-        setError('Failed to load analytics data. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+    if (statsQuery.error || interviewsQuery.error) {
+      console.error('Failed to load analytics data:', statsQuery.error || interviewsQuery.error);
+    }
+  }, [statsQuery.error, interviewsQuery.error]);
 
   // rerender-memo: Memoize derived chart data so it only recalculates when interviewList changes
   const weeklyData = useMemo(() => buildWeeklyData(interviewList), [interviewList]);
@@ -243,8 +241,8 @@ const Analytics = () => {
               ))}
             </div>
           ) : (
-            <div className="grid md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+            <div ref={statsGridRef} className="grid md:grid-cols-4 gap-4 mb-8">
+              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-2">
                   <Target className="text-primary" size={20} />
                 </div>
@@ -254,7 +252,7 @@ const Analytics = () => {
                 <div className="text-sm text-zinc-400">Average Score</div>
               </div>
 
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-2">
                   <Clock className="text-secondary" size={20} />
                 </div>
@@ -262,7 +260,7 @@ const Analytics = () => {
                 <div className="text-sm text-zinc-400">Completed</div>
               </div>
 
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-2">
                   <TrendingUp className="text-purple-400" size={20} />
                 </div>
@@ -270,7 +268,7 @@ const Analytics = () => {
                 <div className="text-sm text-zinc-400">Total Interviews</div>
               </div>
 
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-2">
                   <Brain className="text-pink-400" size={20} />
                 </div>
@@ -289,9 +287,9 @@ const Analytics = () => {
               <BreakdownSkeleton />
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
+            <div ref={chartsRef} className="grid md:grid-cols-2 gap-8 mb-8">
               {/* Weekly Performance Chart */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+              <div className="chart-card bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
                 <h3 className="font-bold mb-6 flex items-center gap-2">
                   <BarChart3 size={18} /> Weekly Performance
                 </h3>
@@ -323,7 +321,7 @@ const Analytics = () => {
               </div>
 
               {/* Type Breakdown */}
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+              <div className="chart-card bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
                 <h3 className="font-bold mb-6 flex items-center gap-2">
                   <Mic size={18} /> Performance by Type
                 </h3>
@@ -360,7 +358,7 @@ const Analytics = () => {
           {loading ? (
             <TableSkeleton />
           ) : (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <div ref={tableRef} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
               <h3 className="font-bold mb-6">Recent Interviews</h3>
               {completedInterviews.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -377,7 +375,7 @@ const Analytics = () => {
                       {completedInterviews.map((interview) => (
                         <tr
                           key={interview.id}
-                          className="border-b border-zinc-800/50 hover:bg-zinc-800/20"
+                          className="table-row-card border-b border-zinc-800/50 hover:bg-zinc-800/20"
                         >
                           <td className="py-4 font-medium">
                             {TYPE_LABELS[interview.type] || interview.type}

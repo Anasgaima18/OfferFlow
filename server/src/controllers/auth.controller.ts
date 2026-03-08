@@ -1,14 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
-import { UserSchemaZod } from '../models/User';
+import { OAuthProviderSchema, UpdateUserSchemaZod, UserSchemaZod } from '../models/User';
 import { AppError } from '../utils/appError';
 import { BaseController } from './BaseController';
 import { catchAsync } from '../utils/catchAsync';
+import { config } from '../config/env';
 import { z } from 'zod';
 
 const LoginSchemaZod = z.object({
     email: z.string().email('Invalid email address'),
     password: z.string().min(1, 'Password is required'),
+});
+
+const OAuthExchangeSchemaZod = z.object({
+    code: z.string().min(1),
 });
 
 export class AuthController extends BaseController {
@@ -42,5 +47,39 @@ export class AuthController extends BaseController {
         }
         
         this.handleSuccess(res, { user }, 'Current user retrieved');
+    });
+
+    updateCurrentUser = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const updates = UpdateUserSchemaZod.parse(req.body);
+        const user = await this.authService.updateProfile(req.user!.id, updates);
+        this.handleSuccess(res, { user }, 'Profile updated successfully');
+    });
+
+    startOAuth = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const provider = OAuthProviderSchema.parse(req.params.provider);
+        const origin = `${req.protocol}://${req.get('host')}`;
+        const url = this.authService.buildOAuthAuthorizationUrl(provider, origin);
+        res.redirect(url);
+    });
+
+    oauthCallback = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const provider = OAuthProviderSchema.parse(req.params.provider);
+        const code = req.query.code as string | undefined;
+        const state = req.query.state as string | undefined;
+
+        if (!code || !state) {
+            throw new AppError('Missing OAuth callback parameters', 400);
+        }
+
+        const origin = `${req.protocol}://${req.get('host')}`;
+        const exchangeCode = await this.authService.handleOAuthCallback(provider, code, state, origin);
+        const clientBaseUrl = ((config.CLIENT_URL || 'http://localhost:5173').split(',')[0] ?? 'http://localhost:5173').trim().replace(/\/$/, '');
+        res.redirect(`${clientBaseUrl}/oauth/callback?code=${encodeURIComponent(exchangeCode)}`);
+    });
+
+    exchangeOAuth = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const { code } = OAuthExchangeSchemaZod.parse(req.body);
+        const result = await this.authService.exchangeOAuthLoginCode(code);
+        this.handleSuccess(res, result, 'OAuth login successful');
     });
 }

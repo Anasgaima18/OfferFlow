@@ -10,7 +10,4 @@ export const supabaseAdmin: SupabaseClient = createClient(config.SUPABASE_URL, c
     }
 });
 
-// Client for user-context operations (respects RLS)
-export const supabase: SupabaseClient = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-
 Logger.info('[supabase]: Supabase client initialized');

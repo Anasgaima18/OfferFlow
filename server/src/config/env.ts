@@ -5,12 +5,18 @@ const envSchema = z.object({
     PORT: z.string().default('5000'),
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+    SENTRY_DSN: z.string().url('SENTRY_DSN must be a valid URL').optional(),
+    API_BASE_URL: z.string().url('API_BASE_URL must be a valid URL').optional(),
     SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
     SUPABASE_ANON_KEY: z.string().min(1, 'SUPABASE_ANON_KEY is required'),
     SUPABASE_SERVICE_KEY: z.string().min(1, 'SUPABASE_SERVICE_KEY is required'),
     ELEVENLABS_API_KEY: z.string().optional(),
     SARVAM_API_KEY: z.string().optional(),
     CLIENT_URL: z.string().optional(),
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
+    GITHUB_CLIENT_ID: z.string().optional(),
+    GITHUB_CLIENT_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

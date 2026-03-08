@@ -1,5 +1,4 @@
 import winston from 'winston';
-import { config } from '../config/env';
 import fs from 'fs';
 import path from 'path';
 
@@ -18,7 +17,7 @@ const levels = {
 };
 
 const level = () => {
-    const envMode = config.NODE_ENV;
+    const envMode = process.env.NODE_ENV || 'development';
     const isDevelopment = envMode === 'development';
     return isDevelopment ? 'debug' : 'warn';
 };

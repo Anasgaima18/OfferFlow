@@ -3,69 +3,12 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Button from '../components/ui/Button';
+import BlurFade from '../components/ui/BlurFade';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import StatTile from '../components/ui/StatTile';
 import { Clock, Trophy, Flame, ChevronRight, Loader2 } from 'lucide-react';
-import { interviews, InterviewStats } from '../services/api';
-
-// Rotating daily challenges — one per day based on day-of-year
-const challengePool = [
-  {
-    title: 'Two Sum',
-    difficulty: 'Easy',
-    company: 'Google',
-    description:
-      'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
-  },
-  {
-    title: 'Valid Parentheses',
-    difficulty: 'Easy',
-    company: 'Amazon',
-    description:
-      'Given a string s containing just the characters \'(\', \')\', \'{\', \'}\', \'[\' and \']\', determine if the input string is valid.',
-  },
-  {
-    title: 'Merge Intervals',
-    difficulty: 'Medium',
-    company: 'Meta',
-    description:
-      'Given an array of intervals where intervals[i] = [starti, endi], merge all overlapping intervals.',
-  },
-  {
-    title: 'LRU Cache',
-    difficulty: 'Medium',
-    company: 'Microsoft',
-    description:
-      'Design a data structure that follows the constraints of a Least Recently Used (LRU) cache.',
-  },
-  {
-    title: 'Trapping Rain Water',
-    difficulty: 'Hard',
-    company: 'Goldman Sachs',
-    description:
-      'Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.',
-  },
-  {
-    title: 'Longest Substring Without Repeating Characters',
-    difficulty: 'Medium',
-    company: 'Apple',
-    description:
-      'Given a string s, find the length of the longest substring without repeating characters.',
-  },
-  {
-    title: 'Reverse Linked List',
-    difficulty: 'Easy',
-    company: 'Adobe',
-    description:
-      'Given the head of a singly linked list, reverse the list, and return the reversed list.',
-  },
-];
-
-function getDailyChallenge() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 0);
-  const diff = now.getTime() - start.getTime();
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-  return challengePool[dayOfYear % challengePool.length];
-}
+import { useInterviewStatsQuery } from '../hooks/useInterviewQueries';
+import { useDailyChallengeQuery } from '../hooks/useContentQueries';
 
 const difficultyColor: Record<string, string> = {
   Easy: 'text-green-400 bg-green-400/10',
@@ -88,33 +31,19 @@ const DailyChallenge = () => {
     };
   };
 
-  const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnight());
-  const [stats, setStats] = useState<InterviewStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(() => getTimeUntilMidnight());
+  const statsQuery = useInterviewStatsQuery();
+  const stats = statsQuery.data;
+  const loading = statsQuery.isLoading;
 
-  const challenge = getDailyChallenge();
+  const challengeQuery = useDailyChallengeQuery();
+  const challenge = challengeQuery.data?.challenge;
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(getTimeUntilMidnight());
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await interviews.getStats();
-        if (res.data.success && res.data.data) {
-          setStats(res.data.data);
-        }
-      } catch {
-        // Stats will show fallback
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
   }, []);
 
   return (
@@ -138,7 +67,8 @@ const DailyChallenge = () => {
           </div>
 
           {/* Timer */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 mb-8">
+          <BlurFade>
+          <SurfaceCard className="p-6 mb-8">
             <div className="flex items-center justify-center gap-2 text-zinc-400 mb-4">
               <Clock size={18} />
               <span>Time until next challenge</span>
@@ -155,33 +85,44 @@ const DailyChallenge = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </SurfaceCard>
+          </BlurFade>
 
           {/* Challenge Card */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-8">
+          <BlurFade delay={0.05}>
+          <SurfaceCard className="p-8 mb-8">
             <div className="flex items-center justify-between mb-4">
-              <span
-                className={`text-sm font-medium px-3 py-1 rounded-full ${difficultyColor[challenge.difficulty] ?? 'text-zinc-400 bg-zinc-400/10'}`}
-              >
-                {challenge.difficulty}
-              </span>
-              <span className="text-sm text-zinc-400">
-                Asked by {challenge.company}
-              </span>
+              {challenge ? (
+                <>
+                  <span
+                    className={`text-sm font-medium px-3 py-1 rounded-full ${difficultyColor[challenge.difficulty] ?? 'text-zinc-400 bg-zinc-400/10'}`}
+                  >
+                    {challenge.difficulty}
+                  </span>
+                  <span className="text-sm text-zinc-400">
+                    Asked by {challenge.company}
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm text-zinc-500">Loading today&apos;s challenge...</span>
+              )}
             </div>
 
-            <h2 className="text-2xl font-bold mb-4">{challenge.title}</h2>
+            <h2 className="text-2xl font-bold mb-4">{challenge?.title ?? 'Preparing challenge...'}</h2>
             <p className="text-zinc-400 mb-6 leading-relaxed">
-              {challenge.description}
+              {challenge
+                ? `${challenge.title} from the ${challenge.category} track with a historical acceptance rate of ${challenge.acceptance}.`
+                : 'We are pulling the current daily challenge from the backend.'}
             </p>
 
             <Link to="/interview-setup">
-              <Button variant="primary" className="w-full group">
+              <Button variant="primary" className="w-full group" disabled={!challenge || challengeQuery.isLoading}>
                 Start Challenge
                 <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-          </div>
+          </SurfaceCard>
+          </BlurFade>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
@@ -189,34 +130,16 @@ const DailyChallenge = () => {
               Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex items-center justify-center h-[104px]"
+                  className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex items-center justify-center h-26"
                 >
                   <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
                 </div>
               ))
             ) : (
               <>
-                <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-center">
-                  <Trophy className="w-6 h-6 text-primary mx-auto mb-2" />
-                  <div className="text-xl font-bold">
-                    {stats?.completedInterviews ?? 0}
-                  </div>
-                  <div className="text-xs text-zinc-400">Challenges Done</div>
-                </div>
-                <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-center">
-                  <Flame className="w-6 h-6 text-orange-400 mx-auto mb-2" />
-                  <div className="text-xl font-bold">
-                    {stats?.totalInterviews ?? 0}
-                  </div>
-                  <div className="text-xs text-zinc-400">Total Sessions</div>
-                </div>
-                <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-center">
-                  <Trophy className="w-6 h-6 text-secondary mx-auto mb-2" />
-                  <div className="text-xl font-bold">
-                    #{stats?.rank ?? '-'}
-                  </div>
-                  <div className="text-xs text-zinc-400">Global Rank</div>
-                </div>
+                <BlurFade delay={0.1}><StatTile icon={<Trophy className="w-5 h-5 text-primary" />} label="Challenges Done" value={String(stats?.completedInterviews ?? 0)} accentClassName="text-primary" /></BlurFade>
+                <BlurFade delay={0.14}><StatTile icon={<Flame className="w-5 h-5 text-orange-400" />} label="Total Sessions" value={String(stats?.totalInterviews ?? 0)} accentClassName="text-orange-400" /></BlurFade>
+                <BlurFade delay={0.18}><StatTile icon={<Trophy className="w-5 h-5 text-secondary" />} label="Global Rank" value={`#${stats?.rank ?? '-'}`} accentClassName="text-secondary" /></BlurFade>
               </>
             )}
           </div>

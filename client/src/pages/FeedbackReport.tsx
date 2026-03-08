@@ -6,6 +6,12 @@ import Button from '../components/ui/Button';
 import { Trophy, MessageSquare, Code2, Brain, ChevronRight, Star, TrendingUp, Download } from 'lucide-react';
 import { interviews } from '../services/api';
 
+interface ApiError {
+  response?: {
+    status?: number;
+  };
+}
+
 interface FeedbackCategory {
   name: string;
   score: number;
@@ -74,13 +80,15 @@ const FeedbackReport = () => {
             categories: Array.isArray(parsedCategories) ? parsedCategories : []
         });
         setInterview(data.interview as unknown as InterviewData);
-      } catch (err: any) {
-        if (err.response?.status === 404) {
+      } catch (err: unknown) {
+        const apiError = err as ApiError;
+
+        if (apiError.response?.status === 404) {
           setError('not-found');
         } else {
           setError('Failed to load feedback report. Please try again.');
         }
-        console.error('Failed to fetch feedback:', err);
+        console.error('Failed to fetch feedback:', apiError);
       } finally {
         setIsLoading(false);
       }
