@@ -12,11 +12,7 @@
     "incremental": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "typeRoots": [
-      "./src/types",
-      "./node_modules/@types"
-    ]
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "src/**/*"

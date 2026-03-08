@@ -17,6 +17,15 @@
     "@sentry/node": "^10.40.0",
     "@sentry/profiling-node": "^10.40.0",
     "@supabase/supabase-js": "^2.91.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.0.9",
+    "@types/ws": "^8.18.1",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "compression": "^1.8.1",
@@ -31,21 +40,12 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "pdf-parse": "^2.4.5",
+    "typescript": "^5.9.3",
     "winston": "^3.19.0",
     "ws": "^8.19.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/compression": "^1.8.1",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/morgan": "^1.9.10",
-    "@types/multer": "^2.1.0",
-    "@types/node": "^25.0.9",
-    "@types/ws": "^8.18.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "ts-node": "^10.9.2"
   }
 }
