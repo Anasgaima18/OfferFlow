@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import BlurFade from '../components/ui/BlurFade';
+import PageHero from '../components/ui/PageHero';
+import PageLayout from '../components/ui/PageLayout';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import StatTile from '../components/ui/StatTile';
+import DataErrorAlert from '../components/ui/DataErrorAlert';
 import { Clock, Trophy, Flame, ChevronRight, Loader2 } from 'lucide-react';
 import { useInterviewStatsQuery } from '../hooks/useInterviewQueries';
 import { useDailyChallengeQuery } from '../hooks/useContentQueries';
@@ -19,6 +20,8 @@ const difficultyColor: Record<string, string> = {
 
 
 const DailyChallenge = () => {
+  const navigate = useNavigate();
+
   const getTimeUntilMidnight = () => {
     const now = new Date();
     const midnight = new Date(now);
@@ -38,6 +41,7 @@ const DailyChallenge = () => {
 
   const challengeQuery = useDailyChallengeQuery();
   const challenge = challengeQuery.data?.challenge;
+  const dataError = statsQuery.isError || challengeQuery.isError;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -47,27 +51,31 @@ const DailyChallenge = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-white font-sans">
-      <Navbar />
+    <PageLayout contentClassName="max-w-5xl">
+      <PageHero
+        kicker="Daily Momentum"
+        title="DAILY CHALLENGE"
+        description="A single focused challenge every day. Build streaks, sharpen pattern recognition, and keep your prep loop active even on busy days."
+        meta={[
+          { label: 'Completed', value: loading ? '--' : String(stats?.completedInterviews ?? 0) },
+          { label: 'Total Sessions', value: loading ? '--' : String(stats?.totalInterviews ?? 0) },
+          { label: 'Rank', value: loading ? '--' : `#${stats?.rank ?? '-'}` },
+        ]}
+        aside={<div className="text-sm font-mono leading-relaxed text-zinc-300">Reset happens at midnight. One good daily rep is enough to keep the interview muscle active.</div>}
+      />
 
-      <main className="pt-32 pb-24 px-4">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full mb-4">
-              <Flame className="text-primary" size={18} />
-              <span className="text-primary font-medium">
-                {loading ? '...' : `${stats?.completedInterviews ?? 0} Challenges Done!`}
-              </span>
-            </div>
-            <h1 className="text-4xl font-bold mb-2">Daily Challenge</h1>
-            <p className="text-zinc-400">
-              Complete today&apos;s challenge to keep improving
-            </p>
-          </div>
+      {dataError && (
+        <BlurFade>
+          <DataErrorAlert
+            message="Could not load today's challenge or your stats. Check your connection and try again."
+            onRetry={() => { statsQuery.refetch(); challengeQuery.refetch(); }}
+            className="mb-8 max-w-xl mx-auto"
+          />
+        </BlurFade>
+      )}
 
-          {/* Timer */}
-          <BlurFade>
+      <div className="mx-auto max-w-3xl">
+        <BlurFade>
           <SurfaceCard className="p-6 mb-8">
             <div className="flex items-center justify-center gap-2 text-zinc-400 mb-4">
               <Clock size={18} />
@@ -88,9 +96,8 @@ const DailyChallenge = () => {
           </SurfaceCard>
           </BlurFade>
 
-          {/* Challenge Card */}
           <BlurFade delay={0.05}>
-          <SurfaceCard className="p-8 mb-8">
+          <SurfaceCard className="premium-panel p-8 mb-8">
             <div className="flex items-center justify-between mb-4">
               {challenge ? (
                 <>
@@ -115,16 +122,18 @@ const DailyChallenge = () => {
                 : 'We are pulling the current daily challenge from the backend.'}
             </p>
 
-            <Link to="/interview-setup">
-              <Button variant="primary" className="w-full group" disabled={!challenge || challengeQuery.isLoading}>
-                Start Challenge
-                <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
+            <Button
+              variant="primary"
+              className="w-full group"
+              disabled={!challenge || challengeQuery.isLoading}
+              onClick={() => navigate('/interview-setup')}
+            >
+              Start Challenge
+              <ChevronRight className="ml-2 transition-transform group-hover:translate-x-1" />
+            </Button>
           </SurfaceCard>
           </BlurFade>
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
@@ -143,11 +152,8 @@ const DailyChallenge = () => {
               </>
             )}
           </div>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </PageLayout>
   );
 };
 

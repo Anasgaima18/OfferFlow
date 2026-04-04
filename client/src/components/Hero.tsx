@@ -1,162 +1,238 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { m, useInView } from 'framer-motion';
+import { ArrowRight, Users, Star, Sparkles } from 'lucide-react';
+import BlurFade from './ui/BlurFade';
+import { buttonStyles } from '../lib/buttonStyles';
 
-const questions = [
-    "Walk me through your approach...",
-    "What is the time complexity?",
-    "How would you optimize this?",
-    "Tell me about a challenging project."
+/* ─── Animated counter (counts from 0 → target on scroll-in) ─── */
+const AnimatedCounter: React.FC<{ target: number; suffix?: string; duration?: number }> = ({
+  target,
+  suffix = '',
+  duration = 1.8,
+}) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-40px' });
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    let start = 0;
+    const step = target / (duration * 60);
+    const tick = () => {
+      start += step;
+      if (start >= target) {
+        setValue(target);
+        return;
+      }
+      setValue(Math.floor(start));
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [inView, target, duration]);
+
+  return (
+    <span ref={ref}>
+      {value.toLocaleString()}
+      {suffix}
+    </span>
+  );
+};
+
+/* ─── Typewriter lines for terminal ─── */
+const terminalLines = [
+  { id: 'prompt', type: 'prompt', text: '~' },
+  { id: 'command', type: 'cmd', text: ' offerflow start --role "Frontend Engineer" --level senior' },
+  { id: 'bank', type: 'output', text: '▸ Loading question bank… 247 scenarios ready' },
+  { id: 'calibration', type: 'output', text: '▸ AI interviewer calibrated to L5 expectations' },
+  { id: 'session', type: 'success', text: '✓ Session active — voice + code editor enabled' },
+  { id: 'follow-up', type: 'accent', text: '▸ "Walk me through how you\'d architect a real-time dashboard…"' },
 ];
 
 const Hero: React.FC = () => {
-    const [currentQuestion, setCurrentQuestion] = useState(0);
-    const [displayText, setDisplayText] = useState("");
-    const [isDeleting, setIsDeleting] = useState(false);
-    const { isAuthenticated } = useAuth();
+  const [visibleLines, setVisibleLines] = useState(0);
 
-    useEffect(() => {
-        const handleTyping = () => {
-            const fullText = questions[currentQuestion];
+  useEffect(() => {
+    if (visibleLines >= terminalLines.length) return;
+    const timer = setTimeout(() => setVisibleLines((v) => v + 1), 650);
+    return () => clearTimeout(timer);
+  }, [visibleLines]);
 
-            if (!isDeleting) {
-                setDisplayText(fullText.substring(0, displayText.length + 1));
-                if (displayText.length === fullText.length) {
-                    setTimeout(() => setIsDeleting(true), 2000);
-                }
-            } else {
-                setDisplayText(fullText.substring(0, displayText.length - 1));
-                if (displayText.length === 0) {
-                    setIsDeleting(false);
-                    setCurrentQuestion((prev) => (prev + 1) % questions.length);
-                }
-            }
-        };
+  return (
+    <section className="hero-shell relative flex items-center">
+      {/* Backdrop FX */}
+      <div className="hero-backdrop" aria-hidden>
+        <div className="hero-orb hero-orb-left" />
+        <div className="hero-orb hero-orb-right" />
+        <div className="hero-grid" />
+        <div className="hero-noise" />
+      </div>
 
-        const timer = setTimeout(handleTyping, isDeleting ? 50 : 100);
-        return () => clearTimeout(timer);
-    }, [displayText, isDeleting, currentQuestion]);
-
-    return (
-        <section className="relative min-h-screen flex items-center justify-center pt-20">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-                <div className="text-center">
-                    {/* Badge */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8"
-                    >
-                        <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                        <span className="text-xs font-mono text-gray-300">Real FAANG-style questions</span>
-                    </motion.div>
-
-                    {/* Main Heading - Pixelated Style */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="mb-8"
-                    >
-                        <h1 className="font-pixel text-5xl md:text-7xl lg:text-8xl tracking-wider text-white mb-4">
-                            <span className="block">READY TO ACE YOUR</span>
-                            <span className="block">INTERVIEW?</span>
-                        </h1>
-                    </motion.div>
-
-                    {/* Subtitle */}
-                    <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-4 font-mono"
-                    >
-                        Practice behavioral and technical rounds with
-                    </motion.p>
-                    <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.25 }}
-                        className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-12 font-mono"
-                    >
-                        real FAANG-style questions. Get scored on
-                    </motion.p>
-                    <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-12 font-mono"
-                    >
-                        communication, problem-solving, and code quality.
-                    </motion.p>
-
-                    {/* CTA Button */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="mb-16"
-                    >
-                        <Link to={isAuthenticated ? '/dashboard' : '/signup'}>
-                            <button className="btn-gradient text-lg font-mono px-8 py-4 rounded-lg inline-flex items-center gap-2 group">
-                                {isAuthenticated ? 'Go to Dashboard' : 'Try Your First Interview Free'}
-                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                            </button>
-                        </Link>
-                    </motion.div>
-
-                    {/* Interview Preview Card */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.5 }}
-                        className="max-w-3xl mx-auto glass-card p-8 md:p-12"
-                    >
-                        {/* Status Bar */}
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                                <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                            </div>
-                            <div className="flex items-center gap-2 text-xs font-mono text-gray-500">
-                                <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                                AI INTERVIEWER
-                            </div>
-                        </div>
-
-                        {/* Typewriter Question */}
-                        <div className="min-h-[80px] flex items-center justify-center">
-                            <p className="font-pixel text-2xl md:text-3xl text-white tracking-wide">
-                                "{displayText}<span className="typewriter-cursor text-secondary">_</span>"
-                            </p>
-                        </div>
-
-                        {/* Audio Wave Effect */}
-                        <div className="flex items-center justify-center gap-1 h-8 mt-8">
-                            {[...Array(20)].map((_, i) => (
-                                <motion.div
-                                    key={i}
-                                    animate={{
-                                        height: [4, 20 + (i % 5) * 6, 4],
-                                    }}
-                                    transition={{
-                                        duration: 1.2,
-                                        repeat: Infinity,
-                                        delay: i * 0.05,
-                                        ease: "easeInOut"
-                                    }}
-                                    className="w-1 rounded-full bg-linear-to-t from-secondary/30 to-secondary"
-                                />
-                            ))}
-                        </div>
-                    </motion.div>
-                </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative z-10 py-24 md:py-32">
+        {/* ─── Top row: kicker + social proof ─── */}
+        <BlurFade delay={0.04}>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+            <div className="section-kicker">
+              <Sparkles className="w-3.5 h-3.5 text-secondary" />
+              AI-Powered Interview Prep
             </div>
-        </section>
-    );
+            <div className="social-proof-bar">
+              <div className="social-proof-divider hidden sm:block" />
+              <div className="social-proof-stat">
+                <Users className="w-3.5 h-3.5 text-secondary" />
+                <span className="stat-value">12,400+</span> engineers practicing
+              </div>
+              <div className="social-proof-divider hidden sm:block" />
+              <div className="social-proof-stat">
+                <Star className="w-3.5 h-3.5 text-primary" />
+                <span className="stat-value">4.9</span> avg. rating
+              </div>
+            </div>
+          </div>
+        </BlurFade>
+
+        {/* ─── Hero grid: copy + terminal ─── */}
+        <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-12 lg:gap-16 items-center">
+          {/* Left: copy */}
+          <div>
+            <BlurFade delay={0.08}>
+              <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold font-mono tracking-tight leading-[1.08] mb-6">
+                <span className="hero-text-gradient">Stop guessing.</span>
+                <br />
+                Start rehearsing.
+              </h1>
+            </BlurFade>
+
+            <BlurFade delay={0.14}>
+              <p className="text-zinc-400 text-base md:text-lg font-mono leading-relaxed max-w-xl mb-8">
+                OfferFlow drops you into a realistic mock interview — voice + live code editor — and shows you exactly where your answers lose signal. Built for engineers who treat prep like practice, not prayer.
+              </p>
+            </BlurFade>
+
+            <BlurFade delay={0.2}>
+              <div className="flex flex-col sm:flex-row gap-3 mb-10">
+                <Link to="/signup" className={buttonStyles({ size: 'lg' })}>
+                  <span className="relative z-10 inline-flex items-center gap-2">
+                    Start Free Interview <ArrowRight className="w-4 h-4" />
+                  </span>
+                </Link>
+                <Link to="/features" className={buttonStyles({ variant: 'secondary', size: 'lg' })}>
+                  <span className="relative z-10 inline-flex items-center gap-2">
+                    See How It Works
+                  </span>
+                </Link>
+              </div>
+            </BlurFade>
+
+            {/* Trust strip */}
+            <BlurFade delay={0.28}>
+              <p className="text-zinc-600 text-xs font-mono uppercase tracking-widest mb-3">
+                Engineers from these companies trust OfferFlow
+              </p>
+              <div className="trust-strip">
+                {['Google', 'Meta', 'Amazon', 'Stripe', 'Shopify'].map((name) => (
+                  <span key={name} className="trust-logo">{name}</span>
+                ))}
+              </div>
+            </BlurFade>
+          </div>
+
+          {/* Right: interactive terminal preview */}
+          <BlurFade delay={0.16}>
+            <m.div
+              className="hero-terminal-enhanced"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.7, ease: 'easeOut' }}
+            >
+              <div className="hero-terminal-dots">
+                <span className="bg-red-500/70" />
+                <span className="bg-yellow-500/70" />
+                <span className="bg-green-500/70" />
+                <span className="ml-auto text-[10px] font-mono text-zinc-600 tracking-wider uppercase">
+                  offerflow session
+                </span>
+              </div>
+              <div className="hero-terminal-body">
+                {terminalLines.slice(0, visibleLines).map((line) => (
+                  <m.div
+                    key={line.id}
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.35 }}
+                  >
+                    <span className={`term-${line.type}`}>{line.text}</span>
+                  </m.div>
+                ))}
+                {visibleLines < terminalLines.length && (
+                  <span className="typewriter-cursor text-secondary">▋</span>
+                )}
+              </div>
+            </m.div>
+          </BlurFade>
+        </div>
+
+        {/* ─── Stats Row ─── */}
+        <BlurFade delay={0.34}>
+          <div className="stats-row mt-20">
+            {[
+              { value: 50000, suffix: '+', label: 'Mock Interviews Run' },
+              { value: 87, suffix: '%', label: 'Offer Rate After Prep' },
+              { value: 40, suffix: '+', label: 'Languages Supported' },
+            ].map((s) => (
+              <div key={s.label} className="stat-card">
+                <div className="stat-number">
+                  <AnimatedCounter target={s.value} suffix={s.suffix} />
+                </div>
+                <div className="stat-label">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </BlurFade>
+
+        {/* ─── Testimonial mini-strip ─── */}
+        <BlurFade delay={0.4}>
+          <div className="grid md:grid-cols-2 gap-6 mt-14">
+            {[
+              {
+                initials: 'SK',
+                name: 'Sarah K.',
+                role: 'SWE @ Google',
+                quote: 'OfferFlow\'s voice mode exposed habits I didn\'t know I had. Two weeks of practice → L5 offer.',
+              },
+              {
+                initials: 'JM',
+                name: 'James M.',
+                role: 'Frontend Lead @ Stripe',
+                quote: 'The code editor + real-time follow-ups made this feel like an actual on-site. Nothing else comes close.',
+              },
+            ].map((t) => (
+              <m.div
+                key={t.initials}
+                className="testimonial-card"
+                whileHover={{ y: -3, borderColor: 'rgba(255,255,255,0.12)' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="testimonial-avatar">{t.initials}</div>
+                  <div>
+                    <div className="font-mono text-sm text-white">{t.name}</div>
+                    <div className="text-xs text-zinc-500 font-mono">{t.role}</div>
+                  </div>
+                    <div className="ml-auto flex gap-0.5">
+                      {['1', '2', '3', '4', '5'].map((star) => (
+                        <Star key={`${t.initials}-${star}`} className="w-3 h-3 text-primary fill-primary" />
+                      ))}
+                    </div>
+                </div>
+                <p className="text-zinc-400 text-sm leading-relaxed font-mono">"{t.quote}"</p>
+              </m.div>
+            ))}
+          </div>
+        </BlurFade>
+      </div>
+    </section>
+  );
 };
 
 export default Hero;

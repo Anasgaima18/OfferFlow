@@ -121,7 +121,12 @@ export class InterviewService {
             const userInfo = Array.isArray(row.users) ? row.users[0] : row.users;
             
             if (!userMap.has(userId)) {
-                userMap.set(userId, { name: userInfo?.name || 'Unknown', avatar: userInfo?.avatar_url || null, scores: [], count: 0 });
+                userMap.set(userId, {
+                    name: userInfo?.name || 'Unknown',
+                    avatar: userInfo?.avatar || userInfo?.avatar_url || null,
+                    scores: [],
+                    count: 0,
+                });
             }
             const entry = userMap.get(userId)!;
             

@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import { Check, Star } from 'lucide-react';
+import { Check, Star, Sparkles } from 'lucide-react';
 import { usePageMeta } from '../hooks/usePageMeta';
+import PageLayout from '../components/ui/PageLayout';
+import PageHero from '../components/ui/PageHero';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import BlurFade from '../components/ui/BlurFade';
+import { buttonStyles } from '../lib/buttonStyles';
 
 interface PricingCardProps {
   title: string;
@@ -16,7 +19,7 @@ interface PricingCardProps {
 }
 
 const PricingCard = ({ title, price, period, interviews, features, recommended = false, ctaText, ctaLink }: PricingCardProps) => (
-  <div className={`relative glass-card p-8 flex flex-col h-full transition-all duration-300 hover:-translate-y-2 ${recommended ? 'border-primary/30' : ''}`}>
+  <SurfaceCard className={`relative premium-panel p-8 flex flex-col h-full transition-all duration-300 hover:-translate-y-2 ${recommended ? 'border-primary/30 shadow-[0_20px_60px_rgba(255,184,0,0.14)]' : 'border-white/10'}`}>
     {recommended && (
       <div className="absolute -top-4 left-1/2 -translate-x-1/2">
         <span className="badge-popular">MOST POPULAR</span>
@@ -41,8 +44,8 @@ const PricingCard = ({ title, price, period, interviews, features, recommended =
 
     {/* Features */}
     <ul className="space-y-4 mb-8 flex-1">
-      {features.map((feature, idx) => (
-        <li key={idx} className="flex items-start text-sm text-gray-300">
+      {features.map((feature) => (
+        <li key={feature} className="flex items-start text-sm text-gray-300">
           <Check size={16} className="mr-3 mt-0.5 text-secondary shrink-0" />
           {feature}
         </li>
@@ -50,16 +53,16 @@ const PricingCard = ({ title, price, period, interviews, features, recommended =
     </ul>
 
     {/* CTA */}
-    <Link to={ctaLink}>
-      <button className={`w-full py-3 rounded-lg font-mono text-sm transition-all ${
-        recommended 
-          ? 'btn-gradient' 
-          : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
-      }`}>
-        {ctaText}
-      </button>
+    <Link
+      to={ctaLink}
+      className={buttonStyles({
+        variant: recommended ? 'primary' : 'secondary',
+        className: 'w-full',
+      })}
+    >
+      {ctaText}
     </Link>
-  </div>
+  </SurfaceCard>
 );
 
 const Pricing = () => {
@@ -69,31 +72,30 @@ const Pricing = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background text-white font-sans">
-      <Navbar />
-      
-      <main className="pt-32 pb-24 px-4 relative">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-16">
-            {/* Free Trial Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8">
+    <PageLayout contentClassName="max-w-7xl">
+      <PageHero
+        kicker="Pricing"
+        title="CHOOSE THE REP COUNT"
+        description="Start with a free round, then scale into a prep cadence that matches the intensity of your hiring cycle. Every plan is built around realistic repetitions, not vanity usage numbers."
+        meta={[
+          { label: 'Free interviews', value: '1' },
+          { label: 'Top paid tier', value: '15' },
+          { label: 'Enterprise setup', value: 'Custom' },
+        ]}
+        aside={
+          <div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-5">
               <Star size={14} className="text-primary" />
               <span className="text-sm font-mono text-gray-300">1 FREE INTERVIEW</span>
               <span className="text-sm text-gray-500">Try it before you buy</span>
             </div>
-
-            <h1 className="font-pixel text-5xl md:text-6xl tracking-wider text-white mb-6">
-              CHOOSE YOUR PLAN
-            </h1>
-            <p className="text-gray-400 font-mono max-w-lg mx-auto">
-              Select the plan that fits your interview prep needs
-            </p>
+            <p className="text-zinc-300 font-mono leading-relaxed">The best value is in consistent reps. The Pro plan is tuned for candidates who want multiple full rounds per week and transcript-backed improvement tracking.</p>
           </div>
+        }
+      />
 
-          {/* Pricing Cards */}
-          <div className="grid md:grid-cols-4 gap-6">
-            <PricingCard 
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+        <BlurFade delay={0.02}><PricingCard 
               title="Free" 
               price="$0"
               interviews="1 interview included"
@@ -104,9 +106,8 @@ const Pricing = () => {
               ]}
               ctaText="Start Free"
               ctaLink="/interview-setup"
-            />
-            
-            <PricingCard 
+            /></BlurFade>
+            <BlurFade delay={0.06}><PricingCard 
               title="Starter" 
               price="$20"
               period="mo"
@@ -118,9 +119,8 @@ const Pricing = () => {
               ]}
               ctaText="Get Started"
               ctaLink="/signup"
-            />
-            
-            <PricingCard 
+            /></BlurFade>
+            <BlurFade delay={0.1}><PricingCard 
               title="Pro" 
               price="$50"
               period="mo"
@@ -135,9 +135,8 @@ const Pricing = () => {
               ]}
               ctaText="Get Started"
               ctaLink="/signup"
-            />
-            
-            <PricingCard 
+            /></BlurFade>
+            <BlurFade delay={0.14}><PricingCard 
               title="Enterprise" 
               price="Custom"
               interviews="Unlimited interviews"
@@ -149,18 +148,16 @@ const Pricing = () => {
               ]}
               ctaText="Contact Sales"
               ctaLink="/support"
-            />
+            /></BlurFade>
           </div>
 
-          {/* Bottom Note */}
-          <p className="text-center text-gray-500 text-sm font-mono mt-12">
-            All plans include access to our AI interviewer powered by GPT-4
-          </p>
+      <SurfaceCard className="p-6 border-white/10 bg-white/4 text-center">
+        <div className="inline-flex items-center gap-2 text-primary font-mono text-sm uppercase tracking-[0.18em] mb-3">
+          <Sparkles size={14} /> Included on every plan
         </div>
-      </main>
-
-      <Footer />
-    </div>
+        <p className="text-gray-400 text-sm font-mono">All plans include access to the AI interviewer, scored practice rounds, and the same core UI experience.</p>
+      </SurfaceCard>
+    </PageLayout>
   );
 };
 

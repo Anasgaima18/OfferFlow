@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 import Button from '../components/ui/Button';
-import { FileText, Upload, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
+import BlurFade from '../components/ui/BlurFade';
+import PageHero from '../components/ui/PageHero';
+import PageLayout from '../components/ui/PageLayout';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import { Upload, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { content } from '../services/api';
 
@@ -27,18 +29,28 @@ const ResumeReview = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white font-sans">
-      <Navbar />
-      <main className="pt-32 pb-24 px-4">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4 flex items-center gap-3"><FileText className="text-primary" /> Resume Review</h1>
-          <p className="text-zinc-400 mb-8">Get AI-powered feedback on your resume in seconds</p>
+    <PageLayout contentClassName="max-w-5xl">
+      <PageHero
+        kicker="Document Review"
+        title="RESUME REVIEW"
+        description="Upload your resume and get fast AI feedback on structure, signal strength, and clarity using hiring-focused criteria."
+        meta={[
+          { label: 'Accepted Files', value: 'PDF/DOCX' },
+          { label: 'Max Size', value: '5MB' },
+          { label: 'Turnaround', value: 'Seconds' },
+        ]}
+        aside={<div className="text-sm font-mono leading-relaxed text-zinc-300">A sharper resume improves both recruiter conversion and how accurately the interview engine personalizes your practice.</div>}
+      />
+
+      <div className="mx-auto max-w-3xl">
 
           {!uploadedFile ? (
+            <BlurFade>
             <button
               type="button"
               onClick={() => document.getElementById('resume-upload-input')?.click()}
-              className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              className="w-full rounded-4xl border-2 border-dashed border-zinc-700 bg-black/20 p-12 text-center transition-colors hover:border-primary/50"
+              aria-label="Upload resume — PDF or DOCX, max 5MB"
             >
               <input
                 id="resume-upload-input"
@@ -56,14 +68,15 @@ const ResumeReview = () => {
               <p className="text-lg font-medium mb-2">Drop your resume here</p>
               <p className="text-sm text-zinc-500">PDF, DOCX up to 5MB</p>
             </button>
+            </BlurFade>
           ) : analyzing ? (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-12 text-center">
+            <SurfaceCard className="premium-panel p-12 text-center">
               <Sparkles className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
               <p className="text-lg font-medium">Analyzing your resume...</p>
               <p className="text-sm text-zinc-500">This usually takes a few seconds</p>
-            </div>
+            </SurfaceCard>
           ) : results && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8">
+            <SurfaceCard className="premium-panel p-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-xl font-bold">Resume Score</h3>
@@ -90,12 +103,10 @@ const ResumeReview = () => {
               <Button variant="primary" className="w-full mt-6" onClick={() => { setUploadedFile(null); setResults(null); }}>
                 Upload Another Resume
               </Button>
-            </div>
+            </SurfaceCard>
           )}
-        </div>
-      </main>
-      <Footer />
-    </div>
+      </div>
+    </PageLayout>
   );
 };
 

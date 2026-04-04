@@ -1,28 +1,23 @@
-import { useEffect, useRef } from 'react';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import { Trophy, Medal, Crown } from 'lucide-react';
-import { useLeaderboardQuery } from '../hooks/useInterviewQueries';
+import { useEffect } from 'react';
+import { Crown, Medal, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
-import { useFadeIn, useStaggerFadeIn } from '../hooks/useAnimations';
+import BlurFade from '../components/ui/BlurFade';
+import PageHero from '../components/ui/PageHero';
+import PageLayout from '../components/ui/PageLayout';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import { useLeaderboardQuery } from '../hooks/useInterviewQueries';
 
-const RankIcon = ({ rank }: { rank: number }) => {
-  if (rank === 1) return <Crown size={20} className="text-yellow-400" />;
-  if (rank === 2) return <Medal size={20} className="text-gray-300" />;
-  if (rank === 3) return <Medal size={20} className="text-amber-600" />;
-  return <span className="font-mono text-gray-500">#{rank}</span>;
-};
+function RankIcon({ rank }: { rank: number }) {
+  if (rank === 1) return <Crown size={20} className="text-yellow-300" />;
+  if (rank === 2) return <Medal size={20} className="text-zinc-200" />;
+  if (rank === 3) return <Medal size={20} className="text-amber-500" />;
+  return <span className="font-mono text-sm text-zinc-500">#{rank}</span>;
+}
 
-const Leaderboard = () => {
+export default function Leaderboard() {
   const leaderboardQuery = useLeaderboardQuery();
   const leaders = leaderboardQuery.data ?? [];
   const isLoading = leaderboardQuery.isLoading;
-  
-  const headerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  useFadeIn(headerRef, 0.1);
-  useStaggerFadeIn(listRef, '.user-row', 0.2);
 
   useEffect(() => {
     if (leaderboardQuery.error) {
@@ -32,96 +27,102 @@ const Leaderboard = () => {
   }, [leaderboardQuery.error]);
 
   return (
-    <div className="min-h-screen bg-background text-white font-sans">
-      <Navbar />
-
-      <main className="pt-32 pb-24 px-4">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div ref={headerRef} className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-6">
-              <Trophy size={16} className="text-primary" />
-              <span className="text-sm font-mono text-gray-300">Weekly Rankings</span>
+    <PageLayout contentClassName="max-w-6xl">
+      <PageHero
+        kicker="Competitive Layer"
+        title="LEADERBOARD"
+        description="See who is compounding strong interview habits. Rankings reflect completed sessions and average interview performance across the platform."
+        meta={[
+          { label: 'Tracked Users', value: String(leaders.length) },
+          { label: 'Refresh Window', value: '24h' },
+          { label: 'Rank Basis', value: 'Score' },
+        ]}
+        aside={
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-primary">
+              <Trophy size={14} />
+              Weekly Rankings
             </div>
+            <p className="text-sm font-mono leading-relaxed text-zinc-300">Top placements reward both quality and repetition. Keep finishing interviews and lifting your average to move up.</p>
+            <div className="grid grid-cols-3 gap-3 text-xs font-mono text-zinc-400">
+              <div className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3 text-center">
+                <div className="text-lg text-yellow-300">#1</div>
+                Crown
+              </div>
+              <div className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3 text-center">
+                <div className="text-lg text-zinc-100">#2</div>
+                Silver
+              </div>
+              <div className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3 text-center">
+                <div className="text-lg text-amber-500">#3</div>
+                Bronze
+              </div>
+            </div>
+          </div>
+        }
+      />
 
-            <h1 className="font-pixel text-4xl md:text-5xl tracking-wider text-white mb-4">
-              GLOBAL LEADERBOARD
-            </h1>
-            <p className="text-gray-400 font-mono">
-              See who's mastering the interviews this week.
-            </p>
+      <BlurFade>
+        <SurfaceCard className="premium-panel overflow-hidden">
+          <div className="grid grid-cols-12 gap-4 border-b border-white/8 bg-white/3 px-5 py-4 text-[11px] uppercase tracking-[0.2em] text-zinc-500">
+            <div className="col-span-2 text-center">Rank</div>
+            <div className="col-span-5">Candidate</div>
+            <div className="col-span-3 text-right">Interviews</div>
+            <div className="col-span-2 text-right">Average</div>
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-zinc-400 font-mono text-sm">Loading rankings...</p>
-              </div>
+            <div className="space-y-3 px-5 py-6">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={`leaderboard-skeleton-${index}`} className="grid animate-pulse grid-cols-12 gap-4 rounded-2xl border border-white/6 bg-white/2 px-4 py-4">
+                  <div className="col-span-2 h-5 rounded bg-white/10" />
+                  <div className="col-span-5 h-5 rounded bg-white/10" />
+                  <div className="col-span-3 h-5 rounded bg-white/10" />
+                  <div className="col-span-2 h-5 rounded bg-white/10" />
+                </div>
+              ))}
             </div>
           ) : leaders.length === 0 ? (
-            <div className="glass-card p-12 text-center">
-              <Trophy size={48} className="text-zinc-600 mx-auto mb-4" />
-              <h2 className="text-xl font-bold mb-2">No Rankings Yet</h2>
-              <p className="text-zinc-400 font-mono text-sm">
-                Complete interviews to appear on the leaderboard.
-              </p>
+            <div className="px-6 py-16 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-white/8 bg-white/5 text-zinc-500">
+                <ShieldCheck size={24} />
+              </div>
+              <h2 className="font-pixel text-2xl tracking-[0.08em] text-white">NO RANKINGS YET</h2>
+              <p className="mx-auto mt-3 max-w-md text-sm font-mono text-zinc-400">Complete interviews to enter the competitive pool. The board updates after backend score aggregation.</p>
             </div>
           ) : (
-            <>
-              {/* Leaderboard Table */}
-              <div ref={listRef} className="glass-card overflow-hidden">
-                {/* Header Row */}
-                <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/10 bg-white/5">
-                  <div className="col-span-2 text-center text-xs font-mono text-gray-500 uppercase tracking-wider">Rank</div>
-                  <div className="col-span-5 text-xs font-mono text-gray-500 uppercase tracking-wider">User</div>
-                  <div className="col-span-3 text-right text-xs font-mono text-gray-500 uppercase tracking-wider">Interviews</div>
-                  <div className="col-span-2 text-right text-xs font-mono text-gray-500 uppercase tracking-wider">Avg Score</div>
-                </div>
-
-                {/* User Rows */}
-                {leaders.map((user, idx) => (
-                  <div
-                    key={user.userId}
-                    className={`user-row grid grid-cols-12 gap-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors items-center ${idx < 3 ? 'bg-white/2' : ''}`}
-                  >
-                    <div className="col-span-2 flex justify-center">
+            <div className="divide-y divide-white/6">
+              {leaders.map((user, index) => (
+                <div key={user.userId} className={`grid grid-cols-12 gap-4 px-5 py-5 transition-colors hover:bg-white/3 ${index < 3 ? 'bg-white/2' : ''}`}>
+                  <div className="col-span-2 flex items-center justify-center">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-black/20">
                       <RankIcon rank={user.rank} />
                     </div>
-                    <div className="col-span-5 font-medium flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-linear-to-br from-secondary/30 to-secondary/10 flex items-center justify-center text-xs font-bold text-secondary overflow-hidden">
-                        {user.avatar ? (
-                          <img src={user.avatar} alt={user.name} className="w-full h-full object-cover rounded-full" />
-                        ) : (
-                          user.name.charAt(0)
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-mono text-sm">{user.name}</div>
-                      </div>
+                  </div>
+                  <div className="col-span-5 flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-secondary/30 to-secondary/10 text-sm font-bold text-secondary">
+                      {user.avatar ? <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" /> : user.name.charAt(0)}
                     </div>
-                    <div className="col-span-3 text-right text-sm text-gray-400 font-mono">
-                      {user.totalInterviews}
-                    </div>
-                    <div className="col-span-2 text-right text-sm font-bold text-secondary font-mono">
-                      {user.averageScore}%
+                    <div>
+                      <div className="font-mono text-sm text-white">{user.name}</div>
+                      <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">Ranked performer</div>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Note */}
-              <p className="text-center text-gray-500 text-xs font-mono mt-8">
-                Rankings update every 24 hours based on interview performance
-              </p>
-            </>
+                  <div className="col-span-3 flex items-center justify-end text-sm font-mono text-zinc-300">{user.totalInterviews}</div>
+                  <div className="col-span-2 flex items-center justify-end text-sm font-mono text-primary">{user.averageScore}%</div>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-      </main>
+        </SurfaceCard>
+      </BlurFade>
 
-      <Footer />
-    </div>
+      <div className="mt-6 text-center text-xs font-mono uppercase tracking-[0.18em] text-zinc-500">
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/3 px-4 py-2">
+          <Sparkles size={14} />
+          Rankings refresh every 24 hours based on interview performance.
+        </span>
+      </div>
+    </PageLayout>
   );
-};
-
-export default Leaderboard;
+}

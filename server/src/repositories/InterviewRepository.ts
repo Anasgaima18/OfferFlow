@@ -94,7 +94,9 @@ export class InterviewRepository {
         user_id: string;
         rank?: number;
         score: number | null;
-        users?: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[];
+        users?:
+            | { name: string; avatar: string | null; avatar_url?: string | null }
+            | { name: string; avatar: string | null; avatar_url?: string | null }[];
         name?: string;
         avatar?: string | null;
         total_interviews?: number;

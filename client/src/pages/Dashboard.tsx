@@ -1,60 +1,89 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import { Plus, Clock, Terminal, Trophy, ChevronRight, Zap } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Compass, Plus, Sparkles, Terminal, Timer, Trophy, Waves, Zap } from 'lucide-react';
+import { toast } from 'sonner';
+import Button from '../components/ui/Button';
+import BlurFade from '../components/ui/BlurFade';
+import PageHero from '../components/ui/PageHero';
+import PageLayout from '../components/ui/PageLayout';
+import SurfaceCard from '../components/ui/SurfaceCard';
 import { useAuth } from '../hooks/useAuth';
 import { useInterviewStatsQuery, useUserInterviewsQuery } from '../hooks/useInterviewQueries';
-import { toast } from 'sonner';
-import { useFadeIn, useStaggerFadeIn } from '../hooks/useAnimations';
 
-// rendering-hoist-jsx: Icons hoisted to module-level to avoid re-creation per render
 const STAT_ICONS = {
-    interviews: <Clock size={20} />,
-    score: <Terminal size={20} />,
-    rank: <Trophy size={20} />,
+    interviews: <Timer size={18} />,
+    score: <Terminal size={18} />,
+    rank: <Trophy size={18} />,
 } as const;
 
-const StatSkeleton: React.FC = () => (
-    <div className="glass-card p-6 animate-pulse">
-        <div className="flex items-center justify-between mb-4">
-            <div className="h-3 w-20 bg-white/10 rounded" />
-            <div className="h-9 w-9 bg-white/10 rounded-lg" />
-        </div>
-        <div className="h-10 w-24 bg-white/10 rounded" />
-    </div>
-);
+const quickActions = [
+    {
+        title: 'Leaderboard',
+        description: 'Benchmark against top performers and see how your consistency stacks up.',
+        href: '/leaderboard',
+        icon: <Trophy size={18} />,
+    },
+    {
+        title: 'Analytics',
+        description: 'Track your score trend, recent sessions, and interview-type breakdowns.',
+        href: '/analytics',
+        icon: <Compass size={18} />,
+    },
+];
 
-const RowSkeleton: React.FC = () => (
-    <div className="p-6 flex items-center justify-between animate-pulse">
-        <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-white/10" />
-            <div>
-                <div className="h-4 w-32 bg-white/10 rounded mb-2" />
-                <div className="h-3 w-24 bg-white/10 rounded" />
-            </div>
-        </div>
-        <div className="flex items-center gap-6">
-            <div className="h-6 w-20 bg-white/10 rounded-full" />
-            <div className="h-6 w-12 bg-white/10 rounded" />
-        </div>
-    </div>
-);
+function formatDate(dateString: string): string {
+    return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
 
-const Dashboard: React.FC = () => {
+function formatType(type: string): string {
+    return type
+        .split('-')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+function getStatusLabel(status: string): string {
+    switch (status) {
+        case 'completed':
+            return 'Completed';
+        case 'in-progress':
+            return 'In Progress';
+        case 'pending':
+            return 'Pending';
+        default:
+            return status;
+    }
+}
+
+function getTypeIcon(type: string) {
+    switch (type) {
+        case 'technical':
+            return <Terminal size={18} />;
+        case 'system-design':
+            return <Zap size={18} />;
+        default:
+            return <Waves size={18} />;
+    }
+}
+
+function getTypeColor(type: string): string {
+    switch (type) {
+        case 'technical':
+            return 'text-primary';
+        case 'system-design':
+            return 'text-fuchsia-300';
+        default:
+            return 'text-secondary';
+    }
+}
+
+export default function Dashboard() {
     const navigate = useNavigate();
     const { user } = useAuth();
-    
-    const headerRef = useRef<HTMLDivElement>(null);
-    const statsGridRef = useRef<HTMLDivElement>(null);
-    const listRef = useRef<HTMLDivElement>(null);
-    const quickActionsRef = useRef<HTMLDivElement>(null);
-
-    useFadeIn(headerRef, 0.1);
-    useStaggerFadeIn(statsGridRef, '.stat-card', 0.2);
-    useStaggerFadeIn(listRef, '.interview-row', 0.3);
-    useStaggerFadeIn(quickActionsRef, '.qa-card', 0.4);
-
     const statsQuery = useInterviewStatsQuery();
     const interviewsQuery = useUserInterviewsQuery();
     const stats = statsQuery.data ?? null;
@@ -68,77 +97,29 @@ const Dashboard: React.FC = () => {
         }
     }, [statsQuery.error, interviewsQuery.error]);
 
-    const formatDate = (dateString: string): string => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        });
-    };
-
-    const formatType = (type: string): string => {
-        return type
-            .split('-')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    };
-
-    const getStatusLabel = (status: string): string => {
-        switch (status) {
-            case 'completed':
-                return 'Completed';
-            case 'in-progress':
-                return 'In Progress';
-            case 'pending':
-                return 'Pending';
-            default:
-                return status;
-        }
-    };
-
-    const getTypeIcon = (type: string) => {
-        switch (type) {
-            case 'technical':
-                return <Terminal size={18} />;
-            case 'system-design':
-                return <Zap size={18} />;
-            default:
-                return <Clock size={18} />;
-        }
-    };
-
-    const getTypeColor = (type: string): string => {
-        switch (type) {
-            case 'technical':
-                return 'text-primary';
-            case 'system-design':
-                return 'text-purple-400';
-            default:
-                return 'text-secondary';
-        }
-    };
-
-    // rerender-memo: Memoize stat cards to prevent re-creation on every render
     const statCards = useMemo(() => {
-        if (!stats) return [];
+        if (!stats) {
+            return [];
+        }
+
         return [
             {
                 label: 'Interviews',
                 value: String(stats.totalInterviews),
                 icon: STAT_ICONS.interviews,
-                color: 'text-secondary',
+                accent: 'text-secondary',
             },
             {
-                label: 'Technical Score',
-                value: (stats.averageScore || 0) > 0 ? stats.averageScore!.toFixed(1) : '--',
+                label: 'Average Score',
+                value: stats.averageScore != null && stats.averageScore > 0 ? `${stats.averageScore.toFixed(1)}%` : '--',
                 icon: STAT_ICONS.score,
-                color: 'text-primary',
+                accent: 'text-primary',
             },
             {
                 label: 'Global Rank',
-                value: stats.rank !== undefined && stats.rank > 0 ? `#${stats.rank}` : '--',
+                value: stats.rank != null && stats.rank > 0 ? `#${stats.rank}` : '--',
                 icon: STAT_ICONS.rank,
-                color: 'text-purple-400',
+                accent: 'text-fuchsia-300',
             },
         ];
     }, [stats]);
@@ -146,183 +127,198 @@ const Dashboard: React.FC = () => {
     const firstName = user?.name?.split(' ')[0] || 'Developer';
 
     return (
-        <div className="min-h-screen bg-background text-white">
-            <Navbar />
-
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24">
-                {/* Header */}
-                <div ref={headerRef} className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
-                    <div>
-                        <h1 className="font-pixel text-3xl tracking-wider text-white mb-2">DASHBOARD</h1>
-                        <p className="text-gray-400 font-mono text-sm">
-                            Welcome back, {firstName}.
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => navigate('/interview-setup')}
-                        className="btn-gradient font-mono text-sm inline-flex items-center gap-2"
-                    >
-                        <Plus size={18} />
-                        New Interview
-                    </button>
-                </div>
-
-                {/* Stats Grid */}
-                <div ref={statsGridRef} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    {loading
-                        ? Array.from({ length: 3 }).map((_, i) => <StatSkeleton key={i} />)
-                        : statCards.map((stat) => (
-                              <div
-                                  key={stat.label}
-                                  className="stat-card glass-card p-6 hover:-translate-y-1 transition-all duration-300"
-                              >
-                                  <div className="flex items-center justify-between mb-4">
-                                      <span className="text-gray-400 text-xs font-mono uppercase tracking-wider">
-                                          {stat.label}
-                                      </span>
-                                      <div className={`${stat.color} glass p-2 rounded-lg`}>
-                                          {stat.icon}
-                                      </div>
-                                  </div>
-                                  <div className="font-pixel text-4xl tracking-wider">
-                                      {stat.value}
-                                  </div>
-                              </div>
-                          ))}
-                </div>
-
-                {/* Recent Activity */}
-                <div className="glass-card overflow-hidden">
-                    <div className="p-6 border-b border-white/10 flex items-center justify-between">
-                        <h2 className="font-mono text-lg font-semibold">Recent Activity</h2>
-                        <Link
-                            to="/analytics"
-                            className="text-secondary text-sm font-mono hover:underline inline-flex items-center gap-1"
-                        >
-                            View All <ChevronRight size={14} />
-                        </Link>
-                    </div>
-
-                    <div ref={listRef} className="divide-y divide-white/5">
-                        {loading ? (
-                            Array.from({ length: 3 }).map((_, i) => <RowSkeleton key={i} />)
-                        ) : recentInterviews.length === 0 ? (
-                            <div className="p-12 text-center">
-                                <div className="text-gray-500 font-mono text-sm mb-4">
-                                    No interviews yet. Start your first one!
-                                </div>
-                                <button
-                                    onClick={() => navigate('/interview-setup')}
-                                    className="btn-gradient font-mono text-sm inline-flex items-center gap-2"
-                                >
-                                    <Plus size={18} />
-                                    New Interview
-                                </button>
+        <PageLayout contentClassName="max-w-7xl">
+            <PageHero
+                kicker="Command Center"
+                title="DASHBOARD"
+                description={`Keep momentum visible. ${firstName}, this is your operating layer for new sessions, recent feedback, and measurable progress.`}
+                meta={[
+                    { label: 'Recent Sessions', value: String(recentInterviews.length) },
+                    { label: 'Completed', value: String(stats?.completedInterviews ?? 0) },
+                    { label: 'Best Score', value: stats?.highestScore != null ? `${stats.highestScore}%` : '--' },
+                ]}
+                actions={
+                    <>
+                        <Button variant="primary" size="lg" onClick={() => navigate('/interview-setup')}>
+                            <Plus size={18} />
+                            Launch New Interview
+                        </Button>
+                        <Button variant="secondary" size="lg" onClick={() => navigate('/analytics')}>View Analytics</Button>
+                    </>
+                }
+                aside={
+                    <div className="space-y-4">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-primary">
+                            <Sparkles size={14} />
+                            Session Rhythm
+                        </div>
+                        <div className="rounded-[1.75rem] border border-white/10 bg-white/3 p-5">
+                            <div className="mb-4 flex items-center justify-between">
+                                <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Readiness</span>
+                                <span className="text-sm font-mono text-white">{stats?.averageScore != null ? `${Math.round(stats.averageScore)}%` : '--'}</span>
                             </div>
-                        ) : (
-                            recentInterviews.map((interview) => (
-                                <div
-                                    key={interview.id}
-                                    onClick={() => navigate(`/feedback/${interview.id}`)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            navigate(`/feedback/${interview.id}`);
-                                        }
-                                    }}
-                                    role="button"
-                                    tabIndex={0}
-                                    className="interview-row p-6 hover:bg-white/5 transition-colors flex items-center justify-between cursor-pointer"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div
-                                            className={`w-10 h-10 rounded-lg glass flex items-center justify-center ${getTypeColor(interview.type)}`}
-                                        >
-                                            {getTypeIcon(interview.type)}
-                                        </div>
-                                        <div>
-                                            <p className="font-mono font-medium text-white">
-                                                {formatType(interview.type)} Round
-                                            </p>
-                                            <p className="text-gray-500 text-sm font-mono">
-                                                {formatDate(interview.created_at)}
-                                            </p>
+                            <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                                <div className="h-full rounded-full bg-linear-to-r from-primary via-amber-300 to-orange-400" style={{ width: `${Math.max(12, Math.round(stats?.averageScore ?? 12))}%` }} />
+                            </div>
+                            <div className="mt-4 grid grid-cols-3 gap-3 text-xs font-mono text-zinc-400">
+                                <div className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3">
+                                    <div className="text-lg text-white">{stats?.totalInterviews ?? 0}</div>
+                                    Sessions
+                                </div>
+                                <div className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3">
+                                    <div className="text-lg text-white">{stats?.completedInterviews ?? 0}</div>
+                                    Closed
+                                </div>
+                                <div className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3">
+                                    <div className="text-lg text-white">{stats?.rank != null ? `#${stats.rank}` : '--'}</div>
+                                    Rank
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            />
+
+            <section className="mb-8 grid gap-5 md:grid-cols-3">
+                {loading
+                    ? Array.from({ length: 3 }).map((_, index) => (
+                            <SurfaceCard key={`dashboard-stat-skeleton-${index}`} className="premium-panel p-6">
+                                <div className="animate-pulse space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="h-3 w-24 rounded bg-white/10" />
+                                        <div className="h-9 w-9 rounded-2xl bg-white/10" />
+                                    </div>
+                                    <div className="h-10 w-24 rounded bg-white/10" />
+                                </div>
+                            </SurfaceCard>
+                        ))
+                    : statCards.map((stat, index) => (
+                            <BlurFade key={stat.label} delay={index * 0.05}>
+                                <SurfaceCard className="premium-panel p-6 transition-transform duration-300 hover:-translate-y-1">
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">{stat.label}</span>
+                                        <div className={`rounded-2xl border border-white/10 bg-white/5 p-3 ${stat.accent}`}>{stat.icon}</div>
+                                    </div>
+                                    <div className="font-pixel text-4xl tracking-[0.08em] text-white">{stat.value}</div>
+                                </SurfaceCard>
+                            </BlurFade>
+                        ))}
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+                <BlurFade>
+                    <SurfaceCard className="premium-panel overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-white/8 px-6 py-5">
+                            <div>
+                                <h2 className="font-pixel text-2xl tracking-[0.08em] text-white">RECENT ACTIVITY</h2>
+                                <p className="mt-2 text-sm font-mono text-zinc-400">Completed sessions open feedback. Live sessions reopen the interview room so you can continue where you left off.</p>
+                            </div>
+                            <Link to="/analytics" className="inline-flex items-center gap-2 text-sm font-mono text-primary transition-colors hover:text-white">
+                                Open history
+                                <ArrowRight size={16} />
+                            </Link>
+                        </div>
+
+                        <div className="divide-y divide-white/6">
+                            {loading ? (
+                                Array.from({ length: 4 }).map((_, index) => (
+                                    <div key={`dashboard-row-skeleton-${index}`} className="animate-pulse px-6 py-6">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-11 w-11 rounded-2xl bg-white/10" />
+                                                <div className="space-y-2">
+                                                    <div className="h-4 w-32 rounded bg-white/10" />
+                                                    <div className="h-3 w-24 rounded bg-white/10" />
+                                                </div>
+                                            </div>
+                                            <div className="h-7 w-20 rounded-full bg-white/10" />
                                         </div>
                                     </div>
+                                ))
+                            ) : recentInterviews.length === 0 ? (
+                                <div className="px-6 py-16 text-center">
+                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-white/8 bg-white/5 text-zinc-400">
+                                        <Plus size={24} />
+                                    </div>
+                                    <h3 className="font-pixel text-2xl tracking-[0.08em] text-white">NO SESSIONS YET</h3>
+                                    <p className="mx-auto mt-3 max-w-md text-sm font-mono text-zinc-400">Start the first interview and this feed becomes your review trail for technical, behavioral, and system design rounds.</p>
+                                    <div className="mt-6">
+                                        <Button variant="primary" onClick={() => navigate('/interview-setup')}>
+                                            <Plus size={18} />
+                                            Start First Interview
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                recentInterviews.map((interview) => {
+                                    const targetPath = interview.status === 'completed'
+                                        ? `/feedback/${interview.id}`
+                                        : `/interview/${interview.id}`;
 
-                                    <div className="flex items-center gap-6">
-                                        <span
-                                            className={`px-3 py-1 rounded-full text-xs font-mono ${
+                                    return (
+                                    <button
+                                        key={interview.id}
+                                        type="button"
+                                        onClick={() => navigate(targetPath)}
+                                        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left transition-colors hover:bg-white/4"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 ${getTypeColor(interview.type)}`}>
+                                                {getTypeIcon(interview.type)}
+                                            </div>
+                                            <div>
+                                                <div className="font-mono text-sm text-white">{formatType(interview.type)} Round</div>
+                                                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-zinc-500">{formatDate(interview.created_at)}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-4">
+                                            <span className={`rounded-full border px-3 py-1 text-[11px] font-mono uppercase tracking-[0.18em] ${
                                                 interview.status === 'completed'
-                                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
                                                     : interview.status === 'in-progress'
-                                                      ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                                                      : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
-                                            }`}
-                                        >
-                                            {getStatusLabel(interview.status)}
-                                        </span>
-
-                                        {interview.score !== null ? (
-                                            <span className="font-pixel text-xl text-secondary">
-                                                {interview.score}%
+                                                        ? 'border-amber-300/30 bg-amber-300/10 text-amber-200'
+                                                        : 'border-white/10 bg-white/5 text-zinc-400'
+                                            }`}>
+                                                {getStatusLabel(interview.status)}
                                             </span>
-                                        ) : null}
+                                            {interview.score != null ? <span className="font-pixel text-xl tracking-[0.08em] text-primary">{interview.score}%</span> : null}
+                                            <ArrowRight size={16} className="text-zinc-500" />
+                                        </div>
+                                    </button>
+                                )})
+                            )}
+                        </div>
+                    </SurfaceCard>
+                </BlurFade>
 
-                                        <ChevronRight
-                                            size={18}
-                                            className="text-gray-400 group-hover:text-white transition-colors"
-                                        />
+                <div className="space-y-6">
+                    {quickActions.map((action, index) => (
+                        <BlurFade key={action.title} delay={0.08 + index * 0.05}>
+                            <Link to={action.href}>
+                                <SurfaceCard className="premium-panel p-6 transition-transform duration-300 hover:-translate-y-1">
+                                    <div className="mb-5 flex items-center justify-between">
+                                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-primary">{action.icon}</div>
+                                        <ArrowRight size={18} className="text-zinc-500" />
                                     </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
+                                    <h3 className="font-pixel text-2xl tracking-[0.08em] text-white">{action.title}</h3>
+                                    <p className="mt-3 text-sm font-mono leading-relaxed text-zinc-400">{action.description}</p>
+                                </SurfaceCard>
+                            </Link>
+                        </BlurFade>
+                    ))}
 
-                {/* Quick Actions */}
-                <div ref={quickActionsRef} className="mt-8 grid md:grid-cols-2 gap-6">
-                    <Link
-                        to="/leaderboard"
-                        className="qa-card glass-card p-6 hover:-translate-y-1 transition-all duration-300 group"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-mono font-semibold text-white mb-1">
-                                    Leaderboard
-                                </h3>
-                                <p className="text-gray-500 text-sm">See your global ranking</p>
+                    <BlurFade delay={0.18}>
+                        <SurfaceCard className="premium-panel p-6">
+                            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-secondary">
+                                <Sparkles size={14} />
+                                Coach Note
                             </div>
-                            <ChevronRight
-                                size={20}
-                                className="text-gray-500 group-hover:text-secondary transition-colors"
-                            />
-                        </div>
-                    </Link>
-
-                    <Link
-                        to="/analytics"
-                        className="glass-card p-6 hover:-translate-y-1 transition-all duration-300 group"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-mono font-semibold text-white mb-1">
-                                    Analytics
-                                </h3>
-                                <p className="text-gray-500 text-sm">Track your progress</p>
-                            </div>
-                            <ChevronRight
-                                size={20}
-                                className="text-gray-500 group-hover:text-secondary transition-colors"
-                            />
-                        </div>
-                    </Link>
+                            <p className="text-sm font-mono leading-relaxed text-zinc-300">Run one focused interview, review one specific weakness, and repeat. The compounding effect matters more than session volume.</p>
+                        </SurfaceCard>
+                    </BlurFade>
                 </div>
-            </main>
-
-            <Footer />
-        </div>
+            </section>
+        </PageLayout>
     );
-};
-
-export default Dashboard;
+}

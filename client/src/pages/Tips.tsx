@@ -1,7 +1,9 @@
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 import { Lightbulb, BookOpen, Zap, Target } from 'lucide-react';
 import { usePageMeta } from '../hooks/usePageMeta';
+import PageLayout from '../components/ui/PageLayout';
+import PageHero from '../components/ui/PageHero';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import BlurFade from '../components/ui/BlurFade';
 
 const tips = [
   { category: 'Before Interview', items: ['Research the company culture', 'Review your resume', 'Prepare questions to ask', 'Test your equipment'] },
@@ -17,14 +19,22 @@ const Tips = () => {
   });
 
   return (
-  <div className="min-h-screen bg-background text-white font-sans">
-    <Navbar />
-    <main className="pt-32 pb-24 px-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 flex items-center gap-3"><Lightbulb className="text-primary" /> Interview Tips</h1>
-        <div className="grid md:grid-cols-2 gap-6">
+  <PageLayout contentClassName="max-w-6xl">
+      <PageHero
+        kicker="Tactical Guide"
+        title="BETTER REPS. BETTER INTERVIEWS."
+        description="These are not generic blog tips. They are practical reminders for better pacing, cleaner explanations, and stronger decision-making while the clock is running."
+        meta={[
+          { label: 'Prep zones', value: '4' },
+          { label: 'Core heuristics', value: '16' },
+          { label: 'Best used with', value: 'Mock rounds' },
+        ]}
+        aside={<p className="text-zinc-300 font-mono leading-relaxed">Read one section, then apply it immediately in a mock interview. The fastest improvements come from tight feedback loops, not passive reading.</p>}
+      />
+      <div className="grid md:grid-cols-2 gap-6">
           {tips.map((section, idx) => (
-            <div key={idx} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <BlurFade key={section.category} delay={idx * 0.05}>
+            <SurfaceCard className="premium-panel p-6 h-full border-white/10">
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                 {idx === 0 && <BookOpen size={18} className="text-primary" />}
                 {idx === 1 && <Zap size={18} className="text-secondary" />}
@@ -34,19 +44,17 @@ const Tips = () => {
               </h2>
               <ul className="space-y-3">
                 {section.items.map((tip, i) => (
-                  <li key={i} className="flex items-start gap-3 text-zinc-300">
+                  <li key={tip} className="flex items-start gap-3 text-zinc-300">
                     <span className="w-6 h-6 bg-zinc-800 rounded-full flex items-center justify-center text-xs text-primary shrink-0">{i + 1}</span>
                     {tip}
                   </li>
                 ))}
               </ul>
-            </div>
+            </SurfaceCard>
+            </BlurFade>
           ))}
-        </div>
       </div>
-    </main>
-    <Footer />
-  </div>
+  </PageLayout>
   );
 };
 

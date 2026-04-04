@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import { BarChart3, TrendingUp, Target, Clock, Brain, Mic } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { BarChart3, Brain, Clock, Mic, Signal, Target, TrendingUp } from 'lucide-react';
 import { IInterview } from '../types';
 import { useInterviewStatsQuery, useUserInterviewsQuery } from '../hooks/useInterviewQueries';
+import BlurFade from '../components/ui/BlurFade';
+import PageHero from '../components/ui/PageHero';
+import PageLayout from '../components/ui/PageLayout';
+import SurfaceCard from '../components/ui/SurfaceCard';
 
 interface DayData {
   day: string;
@@ -97,81 +99,6 @@ function buildTypeBreakdown(interviewList: IInterview[]): TypeBreakdown[] {
   }));
 }
 
-/* ---------- Skeleton Primitives ---------- */
-
-const SkeletonBlock = ({ className = '', style }: { className?: string; style?: React.CSSProperties }) => (
-  <div className={`bg-zinc-800 rounded animate-pulse ${className}`} style={style} />
-);
-
-const StatsCardSkeleton = () => (
-  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-    <div className="flex items-center justify-between mb-2">
-      <SkeletonBlock className="h-5 w-5" />
-      <SkeletonBlock className="h-4 w-10" />
-    </div>
-    <SkeletonBlock className="h-8 w-16 mb-2" />
-    <SkeletonBlock className="h-4 w-24" />
-  </div>
-);
-
-const ChartSkeleton = () => {
-  // Pre-compute values so render is pure
-  const heights = [60, 45, 80, 50, 75, 40, 90];
-  
-  return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-      <SkeletonBlock className="h-5 w-40 mb-6" />
-      <div className="flex items-end justify-between h-40 gap-2">
-        {heights.map((h) => (
-          <div key={h} className="flex-1 flex flex-col items-center">
-            <SkeletonBlock
-              className="w-full rounded-t-md"
-              style={{ height: `${h}%` } as React.CSSProperties}
-            />
-            <SkeletonBlock className="h-3 w-6 mt-2" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const BreakdownSkeleton = () => (
-  <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-    <SkeletonBlock className="h-5 w-40 mb-6" />
-    <div className="space-y-4">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i}>
-          <div className="flex justify-between mb-1">
-            <SkeletonBlock className="h-4 w-28" />
-            <SkeletonBlock className="h-4 w-10" />
-          </div>
-          <SkeletonBlock className="h-2 w-full rounded-full" />
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const TableSkeleton = () => (
-  <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-    <SkeletonBlock className="h-5 w-40 mb-6" />
-    <div className="space-y-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex gap-8">
-          <SkeletonBlock className="h-4 w-24" />
-          <SkeletonBlock className="h-4 w-20" />
-          <SkeletonBlock className="h-4 w-12" />
-          <SkeletonBlock className="h-4 w-20" />
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-/* ---------- Main Component ---------- */
-import { useFadeIn, useStaggerFadeIn } from '../hooks/useAnimations';
-
 const Analytics = () => {
   const statsQuery = useInterviewStatsQuery();
   const interviewsQuery = useUserInterviewsQuery();
@@ -186,16 +113,6 @@ const Analytics = () => {
     return null;
   }, [statsQuery.error, interviewsQuery.error]);
   
-  const headerRef = useRef<HTMLDivElement>(null);
-  const statsGridRef = useRef<HTMLDivElement>(null);
-  const chartsRef = useRef<HTMLDivElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
-
-  useFadeIn(headerRef, 0.1);
-  useStaggerFadeIn(statsGridRef, '.stat-card', 0.2);
-  useStaggerFadeIn(chartsRef, '.chart-card', 0.3);
-  useStaggerFadeIn(tableRef, '.table-row-card', 0.4);
-
   useEffect(() => {
     if (statsQuery.error || interviewsQuery.error) {
       console.error('Failed to load analytics data:', statsQuery.error || interviewsQuery.error);
@@ -215,212 +132,214 @@ const Analytics = () => {
     [interviewList]
   );
 
-  return (
-    <div className="min-h-screen bg-background text-white font-sans">
-      <Navbar />
+  const statCards = [
+    {
+      label: 'Average Score',
+      value: stats?.averageScore != null ? `${Math.round(stats.averageScore)}%` : '--',
+      icon: <Target size={18} />,
+      accent: 'text-primary',
+    },
+    {
+      label: 'Completed',
+      value: String(stats?.completedInterviews ?? 0),
+      icon: <Clock size={18} />,
+      accent: 'text-secondary',
+    },
+    {
+      label: 'Total Interviews',
+      value: String(stats?.totalInterviews ?? 0),
+      icon: <TrendingUp size={18} />,
+      accent: 'text-fuchsia-300',
+    },
+    {
+      label: 'Global Rank',
+      value: stats?.rank != null ? `#${stats.rank}` : '--',
+      icon: <Brain size={18} />,
+      accent: 'text-emerald-300',
+    },
+  ];
 
-      <main className="pt-32 pb-24 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Analytics</h1>
-            <p className="text-zinc-400">Track your interview performance over time</p>
+  return (
+    <PageLayout contentClassName="max-w-7xl">
+      <PageHero
+        kicker="Performance Intelligence"
+        title="ANALYTICS"
+        description="Track how your interview quality evolves over time, which formats are strongest, and where the next lift should come from."
+        meta={[
+          { label: '7-Day Trend', value: hasWeeklyData ? 'Live' : '--' },
+          { label: 'Interview Types', value: String(typeBreakdown.length) },
+          { label: 'Recent Reports', value: String(completedInterviews.length) },
+        ]}
+        aside={
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-secondary">
+              <Signal size={14} />
+              Trend Capture
+            </div>
+            <p className="text-sm font-mono leading-relaxed text-zinc-300">Strong prep is visible in the data: steadier averages, more completed interviews, and fewer score swings between formats.</p>
+            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+              <div className="grid grid-cols-2 gap-3 text-xs font-mono text-zinc-400">
+                <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-4">
+                  <div className="text-lg text-white">{stats?.highestScore != null ? `${stats.highestScore}%` : '--'}</div>
+                  Best Score
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-4">
+                  <div className="text-lg text-white">{stats?.completedInterviews ?? 0}</div>
+                  Completed
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+      />
+
+      {error ? <div className="mb-8 rounded-3xl border border-red-400/20 bg-red-400/10 px-5 py-4 text-sm font-mono text-red-200">{error}</div> : null}
+
+      <section className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {loading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <SurfaceCard key={`analytics-stat-skeleton-${index}`} className="premium-panel p-6">
+                <div className="animate-pulse space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-24 rounded bg-white/10" />
+                    <div className="h-9 w-9 rounded-2xl bg-white/10" />
+                  </div>
+                  <div className="h-9 w-20 rounded bg-white/10" />
+                </div>
+              </SurfaceCard>
+            ))
+          : statCards.map((card, index) => (
+              <BlurFade key={card.label} delay={index * 0.05}>
+                <SurfaceCard className="premium-panel p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">{card.label}</span>
+                    <div className={`rounded-2xl border border-white/10 bg-white/5 p-3 ${card.accent}`}>{card.icon}</div>
+                  </div>
+                  <div className="font-pixel text-4xl tracking-[0.08em] text-white">{card.value}</div>
+                </SurfaceCard>
+              </BlurFade>
+            ))}
+      </section>
+
+      <section className="mb-8 grid gap-6 xl:grid-cols-2">
+        <BlurFade>
+          <SurfaceCard className="premium-panel p-6">
+            <h2 className="mb-6 flex items-center gap-2 font-pixel text-2xl tracking-[0.08em] text-white">
+              <BarChart3 size={20} className="text-primary" />
+              WEEKLY PERFORMANCE
+            </h2>
+            {hasWeeklyData ? (
+              <div className="flex h-52 items-end justify-between gap-3">
+                {weeklyData.map((data) => (
+                  <div key={data.day} className="flex flex-1 flex-col items-center gap-3">
+                    <div className="flex h-full w-full items-end">
+                      <div className="group relative w-full">
+                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 rounded-full border border-white/8 bg-black/60 px-2 py-1 text-[11px] font-mono text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100">
+                          {data.score}%
+                        </div>
+                        <div className="w-full rounded-t-[1.25rem] bg-white/6" style={{ height: `${data.score > 0 ? (data.score / maxScore) * 100 : 6}%` }}>
+                          <div className="h-full rounded-t-[1.25rem] bg-linear-to-t from-primary via-amber-300 to-orange-300" />
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono uppercase tracking-[0.18em] text-zinc-500">{data.day}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-52 items-center justify-center rounded-[1.75rem] border border-dashed border-white/10 bg-black/20 text-sm font-mono text-zinc-500">
+                No interview data from the past 7 days.
+              </div>
+            )}
+          </SurfaceCard>
+        </BlurFade>
+
+        <BlurFade delay={0.06}>
+          <SurfaceCard className="premium-panel p-6">
+            <h2 className="mb-6 flex items-center gap-2 font-pixel text-2xl tracking-[0.08em] text-white">
+              <Mic size={20} className="text-secondary" />
+              PERFORMANCE BY TYPE
+            </h2>
+            {typeBreakdown.length > 0 ? (
+              <div className="space-y-5">
+                {typeBreakdown.map((item) => (
+                  <div key={item.type}>
+                    <div className="mb-2 flex items-center justify-between text-sm font-mono text-zinc-300">
+                      <span>
+                        {item.label} <span className="text-zinc-500">({item.count} completed)</span>
+                      </span>
+                      <span className="text-zinc-400">{item.score}%</span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-white/6">
+                      <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.score}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-52 items-center justify-center rounded-[1.75rem] border border-dashed border-white/10 bg-black/20 text-sm font-mono text-zinc-500">
+                Complete interviews to unlock a type breakdown.
+              </div>
+            )}
+          </SurfaceCard>
+        </BlurFade>
+      </section>
+
+      <BlurFade delay={0.1}>
+        <SurfaceCard className="premium-panel overflow-hidden">
+          <div className="border-b border-white/8 px-6 py-5">
+            <h2 className="font-pixel text-2xl tracking-[0.08em] text-white">RECENT INTERVIEWS</h2>
+            <p className="mt-2 text-sm font-mono text-zinc-400">Your latest completed sessions, ordered from newest to oldest.</p>
           </div>
 
-          {/* Error Banner */}
-          {error && (
-            <div className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Stats Cards */}
           {loading ? (
-            <div className="grid md:grid-cols-4 gap-4 mb-8">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <StatsCardSkeleton key={i} />
+            <div className="space-y-3 px-6 py-6">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={`analytics-table-skeleton-${index}`} className="grid animate-pulse grid-cols-4 gap-4 rounded-2xl border border-white/6 bg-white/2 px-4 py-4">
+                  <div className="h-4 rounded bg-white/10" />
+                  <div className="h-4 rounded bg-white/10" />
+                  <div className="h-4 rounded bg-white/10" />
+                  <div className="h-4 rounded bg-white/10" />
+                </div>
               ))}
             </div>
-          ) : (
-            <div ref={statsGridRef} className="grid md:grid-cols-4 gap-4 mb-8">
-              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <Target className="text-primary" size={20} />
-                </div>
-                <div className="text-2xl font-bold">
-                  {stats?.averageScore != null ? `${Math.round(stats.averageScore)}%` : '--'}
-                </div>
-                <div className="text-sm text-zinc-400">Average Score</div>
-              </div>
-
-              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <Clock className="text-secondary" size={20} />
-                </div>
-                <div className="text-2xl font-bold">{stats?.completedInterviews ?? 0}</div>
-                <div className="text-sm text-zinc-400">Completed</div>
-              </div>
-
-              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <TrendingUp className="text-purple-400" size={20} />
-                </div>
-                <div className="text-2xl font-bold">{stats?.totalInterviews ?? 0}</div>
-                <div className="text-sm text-zinc-400">Total Interviews</div>
-              </div>
-
-              <div className="stat-card bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <Brain className="text-pink-400" size={20} />
-                </div>
-                <div className="text-2xl font-bold">
-                  {stats?.rank != null ? `#${stats.rank}` : '--'}
-                </div>
-                <div className="text-sm text-zinc-400">Global Rank</div>
-              </div>
-            </div>
-          )}
-
-          {/* Charts Row */}
-          {loading ? (
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
-              <ChartSkeleton />
-              <BreakdownSkeleton />
-            </div>
-          ) : (
-            <div ref={chartsRef} className="grid md:grid-cols-2 gap-8 mb-8">
-              {/* Weekly Performance Chart */}
-              <div className="chart-card bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                <h3 className="font-bold mb-6 flex items-center gap-2">
-                  <BarChart3 size={18} /> Weekly Performance
-                </h3>
-                {hasWeeklyData ? (
-                  <div className="flex items-end justify-between h-40 gap-2">
-                    {weeklyData.map((data) => (
-                      <div key={data.day} className="flex-1 flex flex-col items-center">
-                        {data.score > 0 ? (
-                          <div
-                            className="w-full bg-primary/80 rounded-t-md transition-all hover:bg-primary relative group"
-                            style={{ height: `${(data.score / maxScore) * 100}%` }}
-                          >
-                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {data.score}%
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="w-full bg-zinc-800/40 rounded-t-md" style={{ height: '4px' }} />
-                        )}
-                        <span className="text-xs text-zinc-400 mt-2">{data.day}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
-                    No interview data from the past 7 days
-                  </div>
-                )}
-              </div>
-
-              {/* Type Breakdown */}
-              <div className="chart-card bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                <h3 className="font-bold mb-6 flex items-center gap-2">
-                  <Mic size={18} /> Performance by Type
-                </h3>
-                {typeBreakdown.length > 0 ? (
-                  <div className="space-y-4">
-                    {typeBreakdown.map((item) => (
-                      <div key={item.type}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>
-                            {item.label}{' '}
-                            <span className="text-zinc-500">({item.count} completed)</span>
+          ) : completedInterviews.length > 0 ? (
+            <div className="overflow-x-auto px-6 py-4">
+              <table className="w-full min-w-160">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-[0.2em] text-zinc-500">
+                    <th className="pb-4 font-medium">Type</th>
+                    <th className="pb-4 font-medium">Status</th>
+                    <th className="pb-4 font-medium">Score</th>
+                    <th className="pb-4 font-medium">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/6">
+                  {completedInterviews.map((interview) => (
+                    <tr key={interview.id} className="transition-colors hover:bg-white/3">
+                      <td className="py-4 font-mono text-sm text-white">{TYPE_LABELS[interview.type] || interview.type}</td>
+                      <td className="py-4 text-sm font-mono text-zinc-400 capitalize">{interview.status}</td>
+                      <td className="py-4 text-sm font-mono">
+                        {interview.score != null ? (
+                          <span className={interview.score >= 80 ? 'text-emerald-300' : interview.score >= 60 ? 'text-amber-200' : 'text-red-300'}>
+                            {interview.score}%
                           </span>
-                          <span className="text-zinc-400">{item.score}%</span>
-                        </div>
-                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${item.color} rounded-full transition-all`}
-                            style={{ width: `${item.score}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
-                    Complete interviews to see your performance breakdown
-                  </div>
-                )}
-              </div>
+                        ) : (
+                          <span className="text-zinc-500">--</span>
+                        )}
+                      </td>
+                      <td className="py-4 text-sm font-mono text-zinc-500">{formatDate(interview.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {/* Recent Interviews Table */}
-          {loading ? (
-            <TableSkeleton />
           ) : (
-            <div ref={tableRef} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-              <h3 className="font-bold mb-6">Recent Interviews</h3>
-              {completedInterviews.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-sm text-zinc-400 border-b border-zinc-800">
-                        <th className="pb-3">Type</th>
-                        <th className="pb-3">Status</th>
-                        <th className="pb-3">Score</th>
-                        <th className="pb-3">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {completedInterviews.map((interview) => (
-                        <tr
-                          key={interview.id}
-                          className="table-row-card border-b border-zinc-800/50 hover:bg-zinc-800/20"
-                        >
-                          <td className="py-4 font-medium">
-                            {TYPE_LABELS[interview.type] || interview.type}
-                          </td>
-                          <td className="py-4 text-zinc-400 capitalize">{interview.status}</td>
-                          <td className="py-4">
-                            {interview.score != null ? (
-                              <span
-                                className={`font-bold ${
-                                  interview.score >= 80
-                                    ? 'text-green-400'
-                                    : interview.score >= 60
-                                    ? 'text-yellow-400'
-                                    : 'text-red-400'
-                                }`}
-                              >
-                                {interview.score}%
-                              </span>
-                            ) : (
-                              <span className="text-zinc-500">--</span>
-                            )}
-                          </td>
-                          <td className="py-4 text-zinc-500 text-sm">
-                            {formatDate(interview.created_at)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-zinc-500">
-                  <p className="text-sm">No completed interviews yet</p>
-                  <p className="text-xs mt-1">
-                    Start an interview to see your results here
-                  </p>
-                </div>
-              )}
-            </div>
+            <div className="px-6 py-16 text-center text-sm font-mono text-zinc-500">No completed interviews yet.</div>
           )}
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+        </SurfaceCard>
+      </BlurFade>
+    </PageLayout>
   );
 };
 

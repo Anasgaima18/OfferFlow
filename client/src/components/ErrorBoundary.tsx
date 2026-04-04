@@ -38,6 +38,7 @@ class ErrorBoundary extends Component<Props, State> {
                         <button
                             onClick={() => window.location.reload()}
                             className="btn-gradient font-mono text-sm px-6 py-2"
+                            aria-label="Reload page"
                         >
                             Reload Page
                         </button>

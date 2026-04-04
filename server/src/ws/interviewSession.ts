@@ -17,23 +17,33 @@ const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // Sarah - natural conversation
 const WS_AUTH_TIMEOUT_MS = 10_000;
 const SPEECH_DEBOUNCE_MS = 2000;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ROLE_OPTIONS = new Set(['software-engineer', 'frontend-engineer']);
+const LANGUAGE_OPTIONS = new Set(['javascript', 'python', 'java', 'cpp']);
 
 // --- B1: Dynamic system prompts per interview type ---
-function getSystemPrompt(interviewType: string): string {
+function getSystemPrompt(interviewType: string, role?: string | null, language?: string | null): string {
     const rules = `RULES:
 1. You MUST respond ONLY in English. Do NOT use Hindi, Hinglish, or any other language.
 2. You are a STRICT evaluator. If the candidate gives a wrong, vague, or incomplete answer, point out the mistake clearly and ask them to think again. Do NOT agree with incorrect answers. Challenge weak reasoning.
 3. Ask one question at a time. Keep responses concise (2-4 sentences).
 4. After the candidate answers, briefly evaluate their answer (correct/incorrect/partially correct) before moving on.`;
 
+    const roleGuidance = role === 'frontend-engineer'
+        ? 'The candidate is preparing for a frontend engineering role. Emphasize UI architecture, performance, accessibility, debugging, and product trade-offs where relevant.'
+        : 'The candidate is preparing for a general software engineering role. Emphasize algorithms, implementation detail, trade-offs, and communication clarity.';
+
+    const languageGuidance = language
+        ? `When code examples or constraints matter, prefer ${language} unless the candidate explicitly changes languages.`
+        : 'Adapt the coding language to the candidate naturally when examples are needed.';
+
     switch (interviewType) {
         case 'behavioral':
-            return `${rules}\n\nYou are a professional behavioral interviewer at a top tech company. Conduct a behavioral interview using the STAR method (Situation, Task, Action, Result). Ask about leadership, teamwork, conflict resolution, and decision-making. If the candidate gives a generic or superficial answer, probe deeper — ask for specific examples, numbers, outcomes, and lessons learned. Start by welcoming the candidate warmly and asking your first behavioral question.`;
+            return `${rules}\n\n${roleGuidance}\n${languageGuidance}\n\nYou are a professional behavioral interviewer at a top tech company. Conduct a behavioral interview using the STAR method (Situation, Task, Action, Result). Ask about leadership, teamwork, conflict resolution, and decision-making. If the candidate gives a generic or superficial answer, probe deeper — ask for specific examples, numbers, outcomes, and lessons learned. Start by welcoming the candidate warmly and asking your first behavioral question.`;
         case 'system-design':
-            return `${rules}\n\nYou are a senior systems architect conducting a system design interview at a top tech company. Ask the candidate to design a real-world system (e.g., URL shortener, chat application, news feed). Probe their understanding of scalability, load balancing, database choices, caching, API design, and trade-offs. If they make incorrect assumptions or miss important considerations, point it out and ask them to reconsider. Guide them step-by-step. Start by welcoming the candidate and presenting the design problem.`;
+            return `${rules}\n\n${roleGuidance}\n${languageGuidance}\n\nYou are a senior systems architect conducting a system design interview at a top tech company. Ask the candidate to design a real-world system (e.g., URL shortener, chat application, news feed). Probe their understanding of scalability, load balancing, database choices, caching, API design, and trade-offs. If they make incorrect assumptions or miss important considerations, point it out and ask them to reconsider. Guide them step-by-step. Start by welcoming the candidate and presenting the design problem.`;
         case 'technical':
         default:
-            return `${rules}\n\nYou are a professional technical interviewer at a top tech company. Conduct a coding interview. Ask one clear coding question at a time. Evaluate the candidate's problem-solving approach, code quality, time/space complexity, and edge cases. If the candidate's solution is wrong or suboptimal, tell them what's wrong and ask them to fix it. Do NOT accept incorrect solutions. Start by welcoming the candidate and asking your first coding question.`;
+            return `${rules}\n\n${roleGuidance}\n${languageGuidance}\n\nYou are a professional technical interviewer at a top tech company. Conduct a coding interview. Ask one clear coding question at a time. Evaluate the candidate's problem-solving approach, code quality, time/space complexity, and edge cases. If the candidate's solution is wrong or suboptimal, tell them what's wrong and ask them to fix it. Do NOT accept incorrect solutions. Start by welcoming the candidate and asking your first coding question.`;
     }
 }
 
@@ -55,6 +65,10 @@ export function setupWebSocket(
 
         const url = new URL(req.url || '', `http://${req.headers.host}`);
         const interviewId = url.searchParams.get('interviewId');
+        const requestedRole = url.searchParams.get('role');
+        const requestedLanguage = url.searchParams.get('language');
+        const interviewRole = requestedRole && ROLE_OPTIONS.has(requestedRole) ? requestedRole : null;
+        const interviewLanguage = requestedLanguage && LANGUAGE_OPTIONS.has(requestedLanguage) ? requestedLanguage : null;
 
         // Validate interviewId format (UUID) if provided
         if (interviewId && !UUID_REGEX.test(interviewId)) {
@@ -79,6 +93,8 @@ export function setupWebSocket(
             interviewId, 
             userId, 
             interviewType,
+            interviewRole,
+            interviewLanguage,
             interviewService,
             sarvamService,
             elevenLabsService,
@@ -145,18 +161,26 @@ async function initializeInterview(ws: WebSocket, interviewId: string | null, us
     if (interviewId) {
         try {
             const interviewRecord = await interviewService.getInterviewById(interviewId);
-            if (interviewRecord) {
-                if (interviewRecord.user_id !== userId) {
-                    ws.send(JSON.stringify({ type: 'error', message: 'Forbidden: interview does not belong to you' }));
-                    ws.close(4003, 'Forbidden');
-                    return null;
-                }
-                interviewType = interviewRecord.type;
+            if (!interviewRecord) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Interview not found' }));
+                ws.close(4004, 'Interview not found');
+                return null;
             }
+
+            if (interviewRecord.user_id !== userId) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Forbidden: interview does not belong to you' }));
+                ws.close(4003, 'Forbidden');
+                return null;
+            }
+
+            interviewType = interviewRecord.type;
             await interviewService.updateInterview(interviewId, { status: 'in-progress' });
             Logger.info(`Interview ${interviewId} (${interviewType}) status set to in-progress`);
         } catch (e) {
             Logger.warn(`Could not load/update interview: ${(e as Error).message}`);
+            ws.send(JSON.stringify({ type: 'error', message: 'Unable to start interview session' }));
+            ws.close(1011, 'Interview initialization failed');
+            return null;
         }
     }
 
@@ -192,6 +216,8 @@ class InterviewSession {
         interviewId: string | null, 
         userId: string, 
         interviewType: string,
+        interviewRole: string | null,
+        interviewLanguage: string | null,
         private interviewService: InterviewService,
         private sarvamService: SarvamService,
         private elevenLabsService: ElevenLabsService,
@@ -202,7 +228,7 @@ class InterviewSession {
         this.userId = userId;
         this.startedAt = Date.now();
         this.conversationHistory = [
-            { role: 'system', content: getSystemPrompt(interviewType) }
+            { role: 'system', content: getSystemPrompt(interviewType, interviewRole, interviewLanguage) }
         ];
 
         // B3: Heartbeat keepalive

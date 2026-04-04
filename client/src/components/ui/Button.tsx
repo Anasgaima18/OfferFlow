@@ -1,4 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+import { prefersReducedMotion } from '../../hooks/useAnimations';
+import { buttonStyles } from '../../lib/buttonStyles';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'ghost';
@@ -11,28 +15,88 @@ const Button: React.FC<ButtonProps> = ({
     size = 'md',
     className = '',
     children,
+    onMouseEnter,
+    onMouseLeave,
+    onMouseDown,
+    onMouseUp,
+    onClick,
     ...props
 }) => {
-    const baseStyles = "inline-flex items-center justify-center font-mono font-medium transition-all duration-200 rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed";
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const shineRef = useRef<HTMLSpanElement>(null);
 
-    const variants = {
-        primary: "btn-gradient",
-        secondary: "glass hover:bg-white/10 text-white",
-        ghost: "bg-transparent text-gray-400 hover:text-white hover:bg-white/5"
+    useGSAP(() => {
+        const btn = buttonRef.current;
+        const shine = shineRef.current;
+        if (!btn || prefersReducedMotion()) return;
+
+        const hoverIn = () => {
+            gsap.to(btn, { scale: 1.02, duration: 0.28, ease: 'power2.out' });
+            if (shine) {
+                gsap.fromTo(shine, { x: '-130%' }, { x: '130%', duration: 0.6, ease: 'power2.inOut' });
+            }
+        };
+        const hoverOut = () => {
+            gsap.to(btn, { scale: 1, duration: 0.28, ease: 'power2.out' });
+        };
+        const pressDown = () => {
+            gsap.to(btn, { scale: 0.97, duration: 0.08, ease: 'power2.out' });
+        };
+        const pressUp = () => {
+            gsap.to(btn, { scale: 1, duration: 0.35, ease: 'back.out(1.4)' });
+        };
+
+        btn.addEventListener('mouseenter', hoverIn);
+        btn.addEventListener('mouseleave', hoverOut);
+        btn.addEventListener('mousedown', pressDown);
+        btn.addEventListener('mouseup', pressUp);
+        btn.addEventListener('mouseleave', pressUp);
+
+        return () => {
+            btn.removeEventListener('mouseenter', hoverIn);
+            btn.removeEventListener('mouseleave', hoverOut);
+            btn.removeEventListener('mousedown', pressDown);
+            btn.removeEventListener('mouseup', pressUp);
+            btn.removeEventListener('mouseleave', pressUp);
+        };
+    }, { scope: buttonRef });
+
+    const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+        onMouseEnter?.(e);
     };
-
-    const sizes = {
-        sm: "px-3 py-1.5 text-xs",
-        md: "px-5 py-2.5 text-sm",
-        lg: "px-8 py-3.5 text-base"
+    const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+        onMouseLeave?.(e);
+    };
+    const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+        onMouseDown?.(e);
+    };
+    const handleMouseUp = (e: React.MouseEvent<HTMLButtonElement>) => {
+        onMouseUp?.(e);
+    };
+    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+        onClick?.(e);
     };
 
     return (
         <button
-            className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+            ref={buttonRef}
+            className={buttonStyles({ variant, size, className })}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onClick={handleClick}
             {...props}
         >
-            {children}
+            {variant !== 'ghost' && (
+                <span
+                    ref={shineRef}
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent pointer-events-none"
+                    style={{ transform: 'translateX(-130%)' }}
+                />
+            )}
+            <span className="relative z-10 inline-flex items-center gap-2">{children}</span>
         </button>
     );
 };

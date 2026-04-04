@@ -1,7 +1,9 @@
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 import BlurFade from '../components/ui/BlurFade';
+import PageHero from '../components/ui/PageHero';
+import PageLayout from '../components/ui/PageLayout';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import DataErrorAlert from '../components/ui/DataErrorAlert';
+import SpinnerBlock from '../components/ui/SpinnerBlock';
 import { Trophy, Target, Flame, Star, Award, Zap, Clock, Code } from 'lucide-react';
 import { type InterviewStats } from '../services/api';
 import { useInterviewStatsQuery } from '../hooks/useInterviewQueries';
@@ -93,18 +95,22 @@ const Achievements = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-white font-sans">
-        <Navbar />
-        <main className="pt-32 pb-24 px-4">
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-zinc-400 font-mono text-sm">Loading achievements...</p>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <PageLayout contentClassName="max-w-5xl">
+        <SpinnerBlock message="Loading achievements..." className="min-h-[40vh]" />
+      </PageLayout>
+    );
+  }
+
+  if (statsQuery.isError) {
+    return (
+      <PageLayout contentClassName="max-w-5xl">
+        <PageHero kicker="Progress Milestones" title="ACHIEVEMENTS" description="Visible proof that your prep is turning into consistency." />
+        <DataErrorAlert
+          message="Could not load your achievements. Try again to see your badges and progress."
+          onRetry={() => statsQuery.refetch()}
+          className="max-w-xl mx-auto"
+        />
+      </PageLayout>
     );
   }
 
@@ -117,29 +123,28 @@ const Achievements = () => {
   const earnedCount = badges.filter((b) => b.earned).length;
 
   return (
-    <div className="min-h-screen bg-background text-white font-sans">
-      <Navbar />
+    <PageLayout contentClassName="max-w-6xl">
+      <PageHero
+        kicker="Progress Milestones"
+        title="ACHIEVEMENTS"
+        description="Visible proof that your prep is turning into consistency. Unlock badges by practicing more often and pushing your scores upward."
+        meta={[
+          { label: 'Earned', value: String(earnedCount) },
+          { label: 'Available', value: String(badges.length) },
+          { label: 'Completion', value: `${Math.round((earnedCount / badges.length) * 100)}%` },
+        ]}
+        aside={<div className="text-sm font-mono leading-relaxed text-zinc-300">Badges reward both activity and quality. The strongest unlocks require repeat volume and strong average performance.</div>}
+      />
 
-      <main className="pt-32 pb-24 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3">
-              <Trophy className="text-primary" /> Achievements
-            </h1>
-            <p className="text-zinc-400">
-              You've earned <span className="text-primary font-bold">{earnedCount}</span> of {badges.length} badges
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid gap-6 md:grid-cols-2">
             {badges.map((badge, index) => (
               <BlurFade key={badge.id} delay={index * 0.04}>
               <SurfaceCard
                 key={badge.id}
-                className={`p-6 rounded-xl border transition-all ${
+                className={`premium-panel p-6 transition-all ${
                   badge.earned
-                    ? 'bg-zinc-900/50 border-primary/30'
-                    : 'bg-zinc-900/30 border-zinc-800'
+                    ? 'border-primary/30'
+                    : ''
                 }`}
               >
                 <div className="flex items-start gap-4">
@@ -181,12 +186,8 @@ const Achievements = () => {
               </SurfaceCard>
               </BlurFade>
             ))}
-          </div>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </PageLayout>
   );
 };
 

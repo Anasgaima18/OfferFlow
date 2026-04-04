@@ -85,6 +85,16 @@ export class InterviewController extends BaseController {
             throw new AppError('You do not have permission to access this interview', 403);
         }
 
+        if (interview.status !== 'completed') {
+            const transcript = await this.interviewService.getTranscript(interviewId);
+            if (transcript.length === 0) {
+                throw new AppError('Feedback is only available after you have completed an interview session.', 409);
+            }
+
+            await this.interviewService.updateInterview(interviewId, { status: 'completed' });
+            interview.status = 'completed';
+        }
+
         const feedback = await this.feedbackService.generateFeedback(interviewId);
 
         this.handleSuccess(res, { feedback, interview }, 'Feedback retrieved successfully');

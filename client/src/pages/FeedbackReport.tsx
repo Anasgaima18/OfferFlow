@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import { useEffect, useReducer } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
-import { Trophy, MessageSquare, Code2, Brain, ChevronRight, Star, TrendingUp, Download } from 'lucide-react';
+import BlurFade from '../components/ui/BlurFade';
+import PageHero from '../components/ui/PageHero';
+import PageLayout from '../components/ui/PageLayout';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import { Trophy, MessageSquare, Code2, Brain, ChevronRight, Star, TrendingUp, Download, RotateCcw } from 'lucide-react';
 import { interviews } from '../services/api';
 
 interface ApiError {
@@ -32,6 +34,26 @@ interface InterviewData {
   created_at: string;
 }
 
+interface FeedbackReportState {
+  isLoading: boolean;
+  error: string | null;
+  feedback: FeedbackData | null;
+  interview: InterviewData | null;
+}
+
+type FeedbackReportAction = {
+  type: 'set';
+  value: FeedbackReportState;
+};
+
+function feedbackReportReducer(_: FeedbackReportState, action: FeedbackReportAction): FeedbackReportState {
+  if (action.type === 'set') {
+    return action.value;
+  }
+
+  return _;
+}
+
 const getCategoryIcon = (name: string) => {
   const lower = name.toLowerCase();
   if (lower.includes('problem') || lower.includes('analytical')) return <Brain size={20} />;
@@ -43,16 +65,18 @@ const getCategoryIcon = (name: string) => {
 const FeedbackReport = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<FeedbackData | null>(null);
-  const [interview, setInterview] = useState<InterviewData | null>(null);
+  const [state, dispatch] = useReducer(feedbackReportReducer, {
+    isLoading: true,
+    error: null,
+    feedback: null,
+    interview: null,
+  });
+  const { isLoading, error, feedback, interview } = state;
 
   useEffect(() => {
     const fetchFeedback = async () => {
       if (!id) {
-        setError('No interview ID provided.');
-        setIsLoading(false);
+        dispatch({ type: 'set', value: { isLoading: false, error: 'No interview ID provided.', feedback: null, interview: null } });
         return;
       }
 
@@ -72,25 +96,40 @@ const FeedbackReport = () => {
             }
         }
         
-        setFeedback({
-            overallScore: apiFeedback.overall_score || 0,
-            summary: apiFeedback.summary || '',
-            strengths: apiFeedback.strengths || [],
-            improvements: apiFeedback.improvements || [],
-            categories: Array.isArray(parsedCategories) ? parsedCategories : []
+        dispatch({
+          type: 'set',
+          value: {
+            isLoading: false,
+            error: null,
+            feedback: {
+              overallScore: apiFeedback.overall_score || 0,
+              summary: apiFeedback.summary || '',
+              strengths: apiFeedback.strengths || [],
+              improvements: apiFeedback.improvements || [],
+              categories: Array.isArray(parsedCategories) ? parsedCategories : [],
+            },
+            interview: data.interview as unknown as InterviewData,
+          },
         });
-        setInterview(data.interview as unknown as InterviewData);
       } catch (err: unknown) {
         const apiError = err as ApiError;
+        const status = apiError.response?.status;
 
-        if (apiError.response?.status === 404) {
-          setError('not-found');
-        } else {
-          setError('Failed to load feedback report. Please try again.');
-        }
+        dispatch({
+          type: 'set',
+          value: {
+            isLoading: false,
+            error:
+              status === 404
+                ? 'not-found'
+                : status === 409
+                  ? 'not-ready'
+                  : 'Failed to load feedback report. Please try again.',
+            feedback: null,
+            interview: null,
+          },
+        });
         console.error('Failed to fetch feedback:', apiError);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -117,55 +156,74 @@ const FeedbackReport = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Generating your feedback report...</p>
+      <PageLayout contentClassName="max-w-5xl">
+        <div className="flex items-center justify-center py-24">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm font-mono text-zinc-400">Generating your feedback report...</p>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   if (error === 'not-found') {
     return (
-      <div className="min-h-screen bg-background text-white font-sans">
-        <Navbar />
-        <main className="pt-32 pb-24 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="glass-card p-12">
-              <Trophy size={48} className="text-zinc-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Feedback Not Found</h2>
-              <p className="text-zinc-400 mb-6">
-                This interview doesn't have feedback yet, or the interview ID is invalid.
-              </p>
-              <Link to="/dashboard">
-                <Button variant="primary">Back to Dashboard</Button>
-              </Link>
+      <PageLayout contentClassName="max-w-5xl">
+        <div className="py-12 text-center">
+          <SurfaceCard className="premium-panel mx-auto max-w-3xl p-12">
+            <Trophy size={48} className="mx-auto mb-4 text-zinc-600" />
+            <h2 className="font-pixel text-3xl tracking-[0.08em] text-white">FEEDBACK NOT FOUND</h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm font-mono leading-relaxed text-zinc-400">This interview does not have feedback yet, or the session ID is invalid.</p>
+            <div className="mt-8">
+              <Button variant="primary" onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
             </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
+          </SurfaceCard>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (error === 'not-ready') {
+    return (
+      <PageLayout contentClassName="max-w-5xl">
+        <div className="py-12 text-center">
+          <SurfaceCard className="premium-panel mx-auto max-w-3xl p-12">
+            <Trophy size={48} className="mx-auto mb-4 text-zinc-600" />
+            <h2 className="font-pixel text-3xl tracking-[0.08em] text-white">REPORT NOT READY</h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm font-mono leading-relaxed text-zinc-400">
+              This session needs actual interview activity before a feedback report can be generated.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Button variant="primary" onClick={() => navigate(`/interview/${id}`)}>
+                Continue Interview
+              </Button>
+              <Button variant="secondary" onClick={() => navigate('/dashboard')}>
+                Back to Dashboard
+              </Button>
+            </div>
+          </SurfaceCard>
+        </div>
+      </PageLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background text-white font-sans">
-        <Navbar />
-        <main className="pt-32 pb-24 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="glass-card p-12">
-              <h2 className="text-2xl font-bold mb-2 text-red-400">Error</h2>
-              <p className="text-zinc-400 mb-6">{error}</p>
+      <PageLayout contentClassName="max-w-5xl">
+        <div className="py-12 text-center">
+          <SurfaceCard className="premium-panel mx-auto max-w-3xl p-12">
+            <h2 className="font-pixel text-3xl tracking-[0.08em] text-red-300">ERROR</h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm font-mono leading-relaxed text-zinc-400">{error}</p>
+            <div className="mt-8">
               <Button variant="primary" onClick={() => window.location.reload()}>
+                <RotateCcw size={16} />
                 Try Again
               </Button>
             </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
+          </SurfaceCard>
+        </div>
+      </PageLayout>
     );
   }
 
@@ -180,122 +238,114 @@ const FeedbackReport = () => {
     : 'Interview';
 
   return (
-    <div className="min-h-screen bg-background text-white font-sans">
-      <Navbar />
-
-      <main className="pt-24 pb-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-4">
-              <Trophy size={16} className="text-emerald-400" />
-              <span className="text-sm font-mono text-emerald-400">{getHireRecommendation(feedback.overallScore)}</span>
+    <PageLayout contentClassName="max-w-6xl">
+      <PageHero
+        kicker="Session Review"
+        title="FEEDBACK REPORT"
+        description={`Your ${interviewType.toLowerCase()} session is complete. Review the signal, keep the strengths, and convert weak spots into the next practice target.`}
+        meta={[
+          { label: 'Recommendation', value: getHireRecommendation(feedback.overallScore) },
+          { label: 'Session ID', value: id ?? '--' },
+          { label: 'Completed', value: completedAt },
+        ]}
+        actions={
+          <>
+            <Button onClick={() => navigate('/interview-setup')} variant="primary" size="lg">
+              Practice Again
+              <ChevronRight size={18} />
+            </Button>
+            <Button variant="secondary" size="lg" onClick={() => navigate('/analytics')}>
+              <Download size={16} />
+              View All Reports
+            </Button>
+          </>
+        }
+        aside={
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-200">
+              <Trophy size={14} />
+              {getHireRecommendation(feedback.overallScore)}
             </div>
-            <h1 className="text-4xl font-bold mb-2">Interview Complete!</h1>
-            <p className="text-zinc-400">
-              {interviewType} • Session ID: {id} • {completedAt}
-            </p>
-          </div>
-
-          {/* Overall Score */}
-          <div className="glass-card p-8 mb-8 text-center">
-            <h2 className="text-sm font-mono text-zinc-400 uppercase mb-2">Overall Score</h2>
-            <div className={`text-7xl font-bold ${getScoreColor(feedback.overallScore)}`}>
-              {feedback.overallScore}
+            <div className="rounded-[1.75rem] border border-white/10 bg-black/20 p-6 text-center">
+              <div className={`font-pixel text-7xl tracking-[0.08em] ${getScoreColor(feedback.overallScore)}`}>{feedback.overallScore}</div>
+              <div className="mt-2 text-xs uppercase tracking-[0.2em] text-zinc-500">Overall score</div>
             </div>
-            <p className="text-zinc-400 mt-2">out of 100</p>
           </div>
+        }
+      />
 
-          {/* Score Breakdown */}
-          {feedback.categories && feedback.categories.length > 0 && (
-            <div className="grid md:grid-cols-2 gap-4 mb-8">
-              {feedback.categories.map((category) => (
-                <div key={category.name} className="glass-card p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
-                      {getCategoryIcon(category.name)}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium">{category.name}</h3>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${getScoreBarColor(category.score)} transition-all duration-500`}
-                            style={{ width: `${category.score}%` }}
-                          />
-                        </div>
-                        <span className={`text-sm font-bold ${getScoreColor(category.score)}`}>
-                          {category.score}
-                        </span>
+      {feedback.categories && feedback.categories.length > 0 ? (
+        <section className="mb-8 grid gap-4 md:grid-cols-2">
+          {feedback.categories.map((category, index) => (
+            <BlurFade key={category.name} delay={index * 0.04}>
+              <SurfaceCard className="premium-panel p-6">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-zinc-300">{getCategoryIcon(category.name)}</div>
+                  <div className="flex-1">
+                    <div className="font-mono text-sm text-white">{category.name}</div>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/8">
+                        <div className={`h-full ${getScoreBarColor(category.score)}`} style={{ width: `${category.score}%` }} />
                       </div>
+                      <span className={`text-sm font-mono ${getScoreColor(category.score)}`}>{category.score}</span>
                     </div>
                   </div>
-                  <p className="text-sm text-zinc-400">{category.feedback}</p>
                 </div>
-              ))}
-            </div>
-          )}
+                <p className="text-sm font-mono leading-relaxed text-zinc-400">{category.feedback}</p>
+              </SurfaceCard>
+            </BlurFade>
+          ))}
+        </section>
+      ) : null}
 
-          {/* Summary */}
-          {feedback.summary && (
-            <div className="glass-card p-6 mb-8">
-              <h3 className="font-medium text-zinc-300 mb-3">Summary</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">{feedback.summary}</p>
-            </div>
-          )}
+      {feedback.summary ? (
+        <BlurFade>
+          <SurfaceCard className="premium-panel mb-8 p-6">
+            <h2 className="font-pixel text-2xl tracking-[0.08em] text-white">SUMMARY</h2>
+            <p className="mt-4 text-sm font-mono leading-relaxed text-zinc-400">{feedback.summary}</p>
+          </SurfaceCard>
+        </BlurFade>
+      ) : null}
 
-          {/* Strengths & Improvements */}
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
-            {feedback.strengths && feedback.strengths.length > 0 && (
-              <div className="glass-card p-6">
-                <h3 className="font-medium text-emerald-400 mb-4 flex items-center gap-2">
-                  <Star size={18} /> Strengths
-                </h3>
-                <ul className="space-y-2">
-                  {feedback.strengths.map((item, idx) => (
-                    <li key={idx} className="text-sm text-zinc-300 flex items-start gap-2">
-                      <span className="text-emerald-400 mt-0.5">&#10003;</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {feedback.improvements && feedback.improvements.length > 0 && (
-              <div className="glass-card p-6">
-                <h3 className="font-medium text-yellow-400 mb-4 flex items-center gap-2">
-                  <TrendingUp size={18} /> Areas for Improvement
-                </h3>
-                <ul className="space-y-2">
-                  {feedback.improvements.map((item, idx) => (
-                    <li key={idx} className="text-sm text-zinc-300 flex items-start gap-2">
-                      <span className="text-yellow-400 mt-0.5">&rarr;</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button onClick={() => navigate('/interview-setup')} variant="primary" className="group">
-              Practice Again
-              <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
-            <Link to="/analytics">
-              <Button variant="secondary">
-                <Download size={16} className="mr-2" />
-                View All Reports
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+      <section className="grid gap-6 md:grid-cols-2">
+        {feedback.strengths && feedback.strengths.length > 0 ? (
+          <BlurFade>
+            <SurfaceCard className="premium-panel p-6">
+              <h3 className="mb-5 flex items-center gap-2 font-pixel text-2xl tracking-[0.08em] text-emerald-200">
+                <Star size={18} />
+                STRENGTHS
+              </h3>
+              <ul className="space-y-3">
+                {feedback.strengths.map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm font-mono text-zinc-300">
+                    <span className="mt-1 text-emerald-300">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </SurfaceCard>
+          </BlurFade>
+        ) : null}
+        {feedback.improvements && feedback.improvements.length > 0 ? (
+          <BlurFade delay={0.05}>
+            <SurfaceCard className="premium-panel p-6">
+              <h3 className="mb-5 flex items-center gap-2 font-pixel text-2xl tracking-[0.08em] text-amber-200">
+                <TrendingUp size={18} />
+                NEXT IMPROVEMENTS
+              </h3>
+              <ul className="space-y-3">
+                {feedback.improvements.map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm font-mono text-zinc-300">
+                    <span className="mt-1 text-amber-200">→</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </SurfaceCard>
+          </BlurFade>
+        ) : null}
+      </section>
+    </PageLayout>
   );
 };
 
