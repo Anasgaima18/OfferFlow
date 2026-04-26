@@ -112,6 +112,22 @@ app.get('/health', (_req: Request, res: Response) => {
     });
 });
 
+// Phase 5: Prometheus metrics endpoint. Optionally protect with a token so
+// random scanners can't scrape internal counters in production.
+import { registry as metricsRegistry } from './observability/metrics';
+const METRICS_TOKEN = process.env.METRICS_TOKEN;
+app.get('/metrics', async (req: Request, res: Response) => {
+    if (METRICS_TOKEN) {
+        const provided = req.headers.authorization?.replace(/^Bearer\s+/i, '') ?? req.query.token;
+        if (provided !== METRICS_TOKEN) {
+            res.status(401).end('unauthorized');
+            return;
+        }
+    }
+    res.set('Content-Type', metricsRegistry.contentType);
+    res.send(await metricsRegistry.metrics());
+});
+
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/interviews', interviewRoutes);
@@ -147,6 +163,8 @@ const server = app.listen(PORT, () => {
 
 // --- WebSocket Server for Interview Sessions ---
 import { setupWebSocket } from './ws/interviewSession';
+import { drainAllSessions, activeSessionCount } from './ws/sessionRegistry';
+import { startOAuthJanitor } from './services/auth.service';
 
 const interviewRepository = new InterviewRepository();
 const sarvamService = new SarvamService();
@@ -154,7 +172,10 @@ const elevenLabsService = new ElevenLabsService();
 const interviewService = new InterviewService(interviewRepository);
 const feedbackService = new FeedbackService(interviewService, sarvamService);
 
-setupWebSocket(server, interviewService, sarvamService, elevenLabsService, feedbackService);
+const wss = setupWebSocket(server, interviewService, sarvamService, elevenLabsService, feedbackService);
+
+// F6: Sweep abandoned OAuth exchange entries every minute.
+const oauthJanitorHandle = startOAuthJanitor();
 
 // --- R1: Global process error handlers ---
 process.on('unhandledRejection', (reason: unknown) => {
@@ -170,21 +191,49 @@ process.on('uncaughtException', (error: Error) => {
     process.exit(1);
 });
 
-// --- R2: Graceful shutdown ---
-const gracefulShutdown = (signal: string) => {
-    Logger.info(`${signal} received — shutting down gracefully...`);
+/**
+ * F15: Graceful shutdown that actually drains active interview WebSockets.
+ *
+ * Render's rolling deploys send SIGTERM and wait ~30s before SIGKILL.
+ * Previously `server.close()` only stopped accepting NEW HTTP connections;
+ * existing WS sessions stayed open until the kernel reaped them — meaning
+ * mid-interview candidates lost everything on every deploy.
+ *
+ * We now:
+ *   1. Stop the WSS from accepting new upgrades.
+ *   2. Notify each active session and run its cleanup (which flushes the
+ *      pending transcript queue and marks the interview completed).
+ *   3. Close all sockets with code 1012 (Service Restart) so the client
+ *      shows a "reconnecting" UI rather than a generic error.
+ *   4. Then close the HTTP server.
+ */
+const SHUTDOWN_TIMEOUT_MS = Number(process.env.SHUTDOWN_TIMEOUT_MS || 25_000);
+
+let shuttingDown = false;
+const gracefulShutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    Logger.info(`${signal} received — shutting down gracefully (active sessions=${activeSessionCount()})...`);
+
+    clearInterval(oauthJanitorHandle);
+
+    try {
+        wss.close(() => Logger.info('WSS closed (no new upgrades)'));
+        await drainAllSessions(`server_${signal.toLowerCase()}`, SHUTDOWN_TIMEOUT_MS - 5_000);
+    } catch (e) {
+        Logger.error('[shutdown] drain error', e);
+    }
 
     server.close(() => {
         Logger.info('HTTP server closed');
         process.exit(0);
     });
 
-    // Force exit after 10s
     setTimeout(() => {
         Logger.error('Forced shutdown after timeout');
         process.exit(1);
-    }, 10_000);
+    }, SHUTDOWN_TIMEOUT_MS);
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => { void gracefulShutdown('SIGTERM'); });
+process.on('SIGINT', () => { void gracefulShutdown('SIGINT'); });

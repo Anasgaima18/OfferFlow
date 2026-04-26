@@ -1,5 +1,19 @@
-# Render Blueprint — deploys server + client
+# Render Blueprint — deploys server + client + Redis
 # Docs: https://docs.render.com/blueprint-spec
+#
+# F5: The server is now on `starter` (512 MB / 0.5 vCPU, no idle sleep).
+# `free` causes WebSocket interviews to die mid-session because Render spins
+# the instance down after 15 min of idle and there's no horizontal-scale
+# path while the rate limiter and WS server hold state in process memory.
+#
+# Redis is provisioned because:
+#   - F7 — rate limiter must share counters across instances
+#   - F17 — feedback queue (when promoted to BullMQ)
+#   - circuit-breaker / breaker-coordination across instances
+#
+# Promote `plan: starter` → `standard` once you have >50 concurrent interviews;
+# the WSS opens up to 3 outbound WS per session (Sarvam STT + ElevenLabs TTS
+# + the inbound client) so RAM scales linearly with concurrency.
 
 services:
   # ── Backend API (Web Service) ──────────────────────────
@@ -7,7 +21,8 @@ services:
     name: offerflow-server
     runtime: node
     region: oregon
-    plan: free
+    plan: starter            # F5: was `free` — WebSocket sessions died on cold start
+    numInstances: 1          # Bump to 2-3 once REDIS_URL is wired (rate-limiter is now Redis-aware)
     rootDir: server
     buildCommand: npm install && npm run build
     startCommand: npm start
@@ -18,19 +33,40 @@ services:
       - key: PORT
         value: "10000"
       - key: JWT_SECRET
-        sync: false          # Render will prompt you to fill this in
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
+      # F3: enables RLS-scoped per-user clients. Get from Supabase
+      # Project Settings → API → JWT Secret.
+      - key: SUPABASE_JWT_SECRET
+        sync: false
       - key: ELEVENLABS_API_KEY
         sync: false
       - key: SARVAM_API_KEY
         sync: false
       - key: CLIENT_URL
-        sync: false          # Set to the static site URL after first deploy
+        sync: false
+      # F7 + F17: shared Redis for rate-limit + future job queues.
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: offerflow-redis
+          property: connectionString
+      # F12: optional self-hosted Piston (recommended for prod).
+      - key: PISTON_URL
+        value: https://emkc.org/api/v2/piston
+      # F14: WS connection caps. Tune up after monitoring.
+      - key: WS_PER_IP_LIMIT
+        value: "10"
+      - key: WS_GLOBAL_LIMIT
+        value: "200"
+      # Phase 5: protect /metrics from public scraping.
+      - key: METRICS_TOKEN
+        sync: false
       - key: NEW_RELIC_ENABLED
         value: "false"
       - key: NEW_RELIC_APP_NAME
@@ -67,7 +103,7 @@ services:
     name: offerflow-client
     runtime: static
     region: oregon
-    plan: free
+    plan: free                 # Static sites don't sleep — free is fine
     rootDir: client
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -84,9 +120,9 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false          # Set to https://offerflow-server.onrender.com/api/v1
+        sync: false
       - key: VITE_WS_URL
-        sync: false          # Set to wss://offerflow-server.onrender.com/api/v1/interviews/ws
+        sync: false
       - key: VITE_NEW_RELIC_ENABLED
         value: "false"
       - key: VITE_NEW_RELIC_ACCOUNT_ID
@@ -105,3 +141,10 @@ services:
         value: bam.nr-data.net
       - key: VITE_NEW_RELIC_DISTRIBUTED_TRACING_ORIGINS
         sync: false
+
+  # ── Redis (rate limit + breakers + future queues) ─────
+  - type: redis
+    name: offerflow-redis
+    region: oregon
+    plan: free                 # Render's free Redis is 25 MB, fine for rate-limit
+    ipAllowList: []            # Internal-only; reach from offerflow-server

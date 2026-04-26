@@ -36,13 +36,14 @@ export class InterviewController extends BaseController {
 
     getInterviewById = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
-        const interview = await this.interviewService.getInterviewById(interviewId);
+        const userId = req.user!.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId, userId);
 
         if (!interview) {
             throw new AppError('Interview not found', 404);
         }
 
-        if (interview.user_id !== req.user!.id) {
+        if (interview.user_id !== userId) {
             throw new AppError('Not authorized to access this interview', 403);
         }
 
@@ -51,47 +52,48 @@ export class InterviewController extends BaseController {
 
     updateInterview = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
-        const interview = await this.interviewService.getInterviewById(interviewId);
+        const userId = req.user!.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId, userId);
 
         if (!interview) {
             throw new AppError('Interview not found', 404);
         }
 
-        if (interview.user_id !== req.user!.id) {
+        if (interview.user_id !== userId) {
             throw new AppError('Not authorized to modify this interview', 403);
         }
 
-        // Only allow updating specific fields
         const allowedUpdates = {
             score: req.body.score,
             feedback: req.body.feedback,
-            status: req.body.status
+            status: req.body.status,
         };
 
-        const updatedInterview = await this.interviewService.updateInterview(interviewId, allowedUpdates);
+        const updatedInterview = await this.interviewService.updateInterview(interviewId, allowedUpdates, userId);
 
         this.handleSuccess(res, { interview: updatedInterview }, 'Interview updated successfully');
     });
 
     getFeedback = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
-        const interview = await this.interviewService.getInterviewById(interviewId);
+        const userId = req.user!.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId, userId);
 
         if (!interview) {
             throw new AppError('No interview found with that ID', 404);
         }
 
-        if (interview.user_id !== req.user!.id) {
+        if (interview.user_id !== userId) {
             throw new AppError('You do not have permission to access this interview', 403);
         }
 
         if (interview.status !== 'completed') {
-            const transcript = await this.interviewService.getTranscript(interviewId);
+            const transcript = await this.interviewService.getTranscript(interviewId, userId);
             if (transcript.length === 0) {
                 throw new AppError('Feedback is only available after you have completed an interview session.', 409);
             }
 
-            await this.interviewService.updateInterview(interviewId, { status: 'completed' });
+            await this.interviewService.updateInterview(interviewId, { status: 'completed' }, userId);
             interview.status = 'completed';
         }
 
@@ -102,30 +104,32 @@ export class InterviewController extends BaseController {
 
     getTranscript = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
-        const interview = await this.interviewService.getInterviewById(interviewId);
+        const userId = req.user!.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId, userId);
 
         if (!interview) {
             throw new AppError('Interview not found', 404);
         }
 
-        if (interview.user_id !== req.user!.id) {
+        if (interview.user_id !== userId) {
             throw new AppError('Not authorized to access this transcript', 403);
         }
 
-        const messages = await this.interviewService.getTranscript(interviewId);
+        const messages = await this.interviewService.getTranscript(interviewId, userId);
 
         this.handleSuccess(res, { transcript: messages }, 'Transcript retrieved successfully');
     });
 
     addTranscriptMessage = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const interviewId = req.params.id as string;
-        const interview = await this.interviewService.getInterviewById(interviewId);
+        const userId = req.user!.id as string;
+        const interview = await this.interviewService.getInterviewById(interviewId, userId);
 
         if (!interview) {
             throw new AppError('Interview not found', 404);
         }
 
-        if (interview.user_id !== req.user!.id) {
+        if (interview.user_id !== userId) {
             throw new AppError('Not authorized to modify this transcript', 403);
         }
 
@@ -142,7 +146,8 @@ export class InterviewController extends BaseController {
         const message = await this.interviewService.addTranscriptMessage(
             interviewId,
             role,
-            content
+            content,
+            userId,
         );
 
         this.handleSuccess(res, { message }, 'Message added successfully', 201);

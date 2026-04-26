@@ -35,6 +35,19 @@ pnpm-debug.log*
 
 # Testing
 coverage/
+test-results/
+playwright-report/
+output/playwright/
+
+# Load-test secrets / artefacts
+loadtest/metrics.token
+loadtest/results/
+loadtest/users.ndjson
+loadtest/.env
+
+# Local diff scratch dumps
+git_diff_files.txt
+git_diff_stat.txt
 
 # Misc
 *.local

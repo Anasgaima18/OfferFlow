@@ -1,9 +1,11 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import FormData from 'form-data';
 import { config } from '../config/env';
 import WebSocket from 'ws';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
+import { makeBreaker } from '../utils/circuitBreaker';
+import { externalApiDuration, externalApiErrors } from '../observability/metrics';
 
 /** Helper to extract an error message from an unknown caught value */
 function getErrorMessage(error: unknown): string {
@@ -83,32 +85,79 @@ export class SarvamService {
   }
 
   /**
-   * Chat Completion (AI Interviewer Logic)
-   * Model: sarvam-m
+   * F16: Chat Completion with circuit breaker, retry, and tighter timeout.
+   *
+   * Previous: 30s timeout, no retry, no breaker. A network blip froze the
+   * whole interview for 30 seconds; a degraded Sarvam pinned every active
+   * session simultaneously.
+   *
+   * Now: 12s per attempt, up to 2 retries with jittered backoff for
+   * transient errors (5xx, network, timeout), and a circuit breaker that
+   * fast-fails after sustained failures so we don't pile up dying requests.
    */
-  async generateResponse(messages: { role: string; content: string }[]): Promise<string> {
-    if (!this.apiKey) return "Mock Response: I think you made a good point there.";
-
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/v1/chat/completions`,
-        {
-          model: "sarvam-m",
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 500
-        },
-        {
-          headers: this.getHeaders(),
-          timeout: 30000
-        }
-      );
-
-      return response.data.choices[0].message.content;
-    } catch (error: unknown) {
-      Logger.error(`Sarvam Chat Error: ${getAxiosErrorDetail(error)}`);
-      throw new AppError('Failed to generate AI response', 500);
+  private chatBreaker = makeBreaker(
+    'sarvam-chat',
+    async (messages: { role: string; content: string }[], signal?: AbortSignal): Promise<string> => {
+      const start = Date.now();
+      const SARVAM_CHAT_TIMEOUT = Number(process.env.SARVAM_CHAT_TIMEOUT_MS || 12_000);
+      try {
+        const response = await axios.post(
+          `${this.baseUrl}/v1/chat/completions`,
+          { model: 'sarvam-m', messages, temperature: 0.7, max_tokens: 500 },
+          { headers: this.getHeaders(), timeout: SARVAM_CHAT_TIMEOUT, signal }
+        );
+        return response.data.choices[0].message.content;
+      } catch (err) {
+        const ax = err as AxiosError;
+        const status = ax.response?.status ?? 0;
+        const kind = status >= 500 ? '5xx' : status === 429 ? 'rate_limit' : ax.code === 'ECONNABORTED' ? 'timeout' : 'error';
+        externalApiErrors.inc({ service: 'sarvam', op: 'chat', kind });
+        throw err;
+      } finally {
+        externalApiDuration.observe({ service: 'sarvam', op: 'chat' }, Date.now() - start);
+      }
+    },
+    {
+      timeout: 14_000,
+      errorThresholdPercentage: 40,
+      resetTimeout: 20_000,
+      volumeThreshold: 3,
     }
+  );
+
+  async generateResponse(messages: { role: string; content: string }[], signal?: AbortSignal): Promise<string> {
+    if (!this.apiKey) return 'Mock Response: I think you made a good point there.';
+
+    const MAX_ATTEMPTS = 3;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        return await this.chatBreaker.fire(messages, signal);
+      } catch (error) {
+        lastError = error;
+        const ax = error as AxiosError;
+        const status = ax?.response?.status ?? 0;
+        const isRetryable =
+          ax?.code === 'ECONNABORTED' ||
+          ax?.code === 'ECONNRESET' ||
+          ax?.code === 'ETIMEDOUT' ||
+          status === 429 ||
+          status >= 500;
+
+        if ((error as { code?: string }).code === 'EOPENBREAKER') {
+          Logger.warn('[Sarvam] breaker open — fast-failing chat');
+          break;
+        }
+
+        if (!isRetryable || attempt === MAX_ATTEMPTS) break;
+
+        const backoff = 250 * 2 ** (attempt - 1) + Math.floor(Math.random() * 200);
+        Logger.warn(`[Sarvam] chat attempt ${attempt} failed (${status || ax?.code}); retrying in ${backoff}ms`);
+        await new Promise((r) => setTimeout(r, backoff));
+      }
+    }
+    Logger.error(`Sarvam Chat Error after retries: ${getAxiosErrorDetail(lastError)}`);
+    throw new AppError('Failed to generate AI response', 503);
   }
 
   /**

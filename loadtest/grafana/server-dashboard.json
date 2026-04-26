@@ -1,0 +1,163 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "title": "OfferFlow — Server Runtime",
+  "uid": "offerflow-server",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active WS interview sessions",
+      "id": 1,
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        { "expr": "offerflow_ws_active_connections", "legendFormat": "active" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Event-loop lag (s)",
+      "id": 2,
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        { "expr": "offerflow_nodejs_eventloop_lag_seconds" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "RSS (MB)",
+      "id": 3,
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        { "expr": "offerflow_process_resident_memory_bytes / 1024 / 1024", "legendFormat": "rss MiB" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "User-cache hit ratio",
+      "id": 4,
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(rate(offerflow_user_cache_hits_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(offerflow_user_cache_hits_total[5m])), 1e-6)",
+          "legendFormat": "cache-hit ratio (F4)"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "HTTP duration p95 by route (ms)",
+      "id": 10,
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(offerflow_http_request_duration_ms_bucket[1m])) by (le, route))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Supabase query p95 (ms) by op/table",
+      "id": 11,
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(offerflow_supabase_query_ms_bucket[1m])) by (le, op, table))",
+          "legendFormat": "{{op}} {{table}}"
+        }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "External AI duration p95 (ms)",
+      "id": 20,
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(offerflow_external_api_ms_bucket[1m])) by (le, service, op))",
+          "legendFormat": "{{service}} {{op}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Circuit-breaker state (0=closed 1=half 2=open)",
+      "id": 21,
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "offerflow_circuit_breaker_state", "legendFormat": "{{name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "min": 0, "max": 2 }
+      }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "AI response latency p95/p99 (ms)",
+      "id": 30,
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(offerflow_ai_response_latency_ms_bucket[1m])) by (le))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(offerflow_ai_response_latency_ms_bucket[1m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "STT turn latency p95/p99 (ms)",
+      "id": 31,
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(offerflow_stt_turn_latency_ms_bucket[1m])) by (le))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(offerflow_stt_turn_latency_ms_bucket[1m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "WS bufferedAmount distribution (F2)",
+      "id": 40,
+      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(offerflow_ws_buffered_amount_bytes_bucket[1m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(offerflow_ws_buffered_amount_bytes_bucket[1m])) by (le))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(offerflow_ws_buffered_amount_bytes_bucket[1m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "WS frame drops (F2 backpressure)",
+      "id": 41,
+      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(offerflow_ws_send_drops_total[1m])) by (kind, reason)", "legendFormat": "{{kind}} / {{reason}}" }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Transcript queue depth + drops (F8)",
+      "id": 50,
+      "gridPos": { "x": 0, "y": 36, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "offerflow_transcript_queue_depth", "legendFormat": "queue depth" },
+        { "expr": "sum(rate(offerflow_transcript_drops_total[5m]))", "legendFormat": "drops/5m" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "WS connections per remote IP (top, F14)",
+      "id": 51,
+      "gridPos": { "x": 12, "y": 36, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "topk(10, offerflow_ws_connections_by_ip)", "legendFormat": "{{ip}}" }
+      ]
+    }
+  ]
+}

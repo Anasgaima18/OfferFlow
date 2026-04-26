@@ -6,9 +6,57 @@ import crypto from 'crypto';
 import { UserInput, IUser, OAuthProfile, OAuthProvider, UpdateUserInput } from '../models/User';
 import { config } from '../config/env';
 import { UserRepository } from '../repositories/UserRepository';
+import { Logger } from '../utils/logger';
+import { invalidateCachedUser } from '../utils/userCache';
 
 const oauthExchangeStore = new Map<string, { user: IUser; expiresAt: number }>();
 const OAUTH_CODE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * F10: Down from cost-12 to cost-10. Cost-12 = ~250-400ms CPU per call on a
+ * 0.1 vCPU Render plan, which means 5 concurrent logins fully saturate the
+ * event loop. Cost-10 keeps it at ~60-100ms while still well above OWASP's
+ * 2024 recommendation of cost-10 minimum for bcrypt. Override via env if you
+ * upgrade to a beefier plan.
+ */
+const BCRYPT_COST = Number(process.env.BCRYPT_COST || 10);
+
+/**
+ * F6: Janitor for the in-process oauthExchangeStore. Without this, abandoned
+ * OAuth flows (user closes tab between callback and exchange) leak entries
+ * forever. We sweep every minute and additionally cap the map size as a
+ * second line of defence against pathological abuse.
+ */
+const OAUTH_STORE_MAX = Number(process.env.OAUTH_STORE_MAX || 10_000);
+const OAUTH_JANITOR_INTERVAL_MS = 60_000;
+
+export function startOAuthJanitor(): NodeJS.Timeout {
+    const handle = setInterval(() => {
+        const now = Date.now();
+        let expired = 0;
+        for (const [code, entry] of oauthExchangeStore) {
+            if (entry.expiresAt < now) {
+                oauthExchangeStore.delete(code);
+                expired++;
+            }
+        }
+        if (oauthExchangeStore.size > OAUTH_STORE_MAX) {
+            const toDelete = oauthExchangeStore.size - OAUTH_STORE_MAX;
+            const iterator = oauthExchangeStore.keys();
+            for (let i = 0; i < toDelete; i++) {
+                const next = iterator.next();
+                if (next.done) break;
+                oauthExchangeStore.delete(next.value);
+            }
+            Logger.warn(`[oauth] janitor evicted ${toDelete} oldest entries (cap=${OAUTH_STORE_MAX})`);
+        }
+        if (expired > 0) {
+            Logger.debug(`[oauth] janitor swept ${expired} expired entries`);
+        }
+    }, OAUTH_JANITOR_INTERVAL_MS);
+    handle.unref?.();
+    return handle;
+}
 
 type OAuthProviderConfig = {
     clientId?: string;
@@ -38,8 +86,8 @@ export class AuthService {
             }
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(userData.password, 12);
+        // F10: bcrypt cost lowered from 12 → 10 (configurable via BCRYPT_COST).
+        const hashedPassword = await bcrypt.hash(userData.password, BCRYPT_COST);
 
         // Create user
         const user = await this.userRepository.create(userData, hashedPassword);
@@ -93,7 +141,10 @@ export class AuthService {
             }
         }
 
-        return await this.userRepository.updateProfile(userId, updates);
+        const updated = await this.userRepository.updateProfile(userId, updates);
+        // F4: invalidate cached user so next request sees the fresh profile.
+        invalidateCachedUser(userId);
+        return updated;
     }
 
     buildOAuthAuthorizationUrl(provider: OAuthProvider, requestBaseUrl?: string) {

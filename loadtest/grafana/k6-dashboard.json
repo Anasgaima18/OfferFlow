@@ -1,0 +1,125 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "title": "OfferFlow — k6 Load Test",
+  "uid": "offerflow-k6",
+  "schemaVersion": 39,
+  "version": 2,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "REST p50 / p95 / p99 (ms)",
+      "id": 1,
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(k6_http_req_duration_seconds_bucket[1m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_http_req_duration_seconds_bucket[1m])) by (le))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(k6_http_req_duration_seconds_bucket[1m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "REST RPS by endpoint",
+      "id": 2,
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(k6_http_reqs_total[1m])) by (endpoint)", "legendFormat": "{{endpoint}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "REST error rate",
+      "id": 3,
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 4 },
+      "targets": [
+        { "expr": "sum(rate(k6_http_req_failed_total[1m])) / sum(rate(k6_http_reqs_total[1m]))" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Active VUs",
+      "id": 4,
+      "gridPos": { "x": 8, "y": 8, "w": 4, "h": 4 },
+      "targets": [{ "expr": "k6_vus" }]
+    },
+    {
+      "type": "stat",
+      "title": "WS connect success rate",
+      "id": 5,
+      "gridPos": { "x": 8, "y": 12, "w": 4, "h": 4 },
+      "targets": [{ "expr": "rate(k6_ws_connect_success[1m])" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "WS interview latencies p95 (ms)",
+      "id": 6,
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_ws_turn_latency_ms_bucket[1m])) by (le))",                "legendFormat": "turn p95" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_ws_greeting_ms_bucket[1m])) by (le))",                  "legendFormat": "greeting p95" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_ws_first_audio_byte_ms_bucket[1m])) by (le))",          "legendFormat": "first-audio-byte p95 (F1)" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_ws_transcript_first_partial_ms_bucket[1m])) by (le))", "legendFormat": "first-partial p95" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "WS audio bytes/chunks per second",
+      "id": 7,
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(k6_ws_audio_bytes_out_total[1m]))",  "legendFormat": "bytes out (audio→server)" },
+        { "expr": "sum(rate(k6_ws_audio_bytes_in_total[1m]))",   "legendFormat": "bytes in  (TTS→client)"  },
+        { "expr": "sum(rate(k6_ws_audio_chunks_in_total[1m]))",  "legendFormat": "audio chunks/sec (F1 streaming)" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "WS close codes (1012=restart, 1013=cap, other=abnormal)",
+      "id": 8,
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(k6_ws_abnormal_close_total[1m]))",   "legendFormat": "abnormal" },
+        { "expr": "sum(rate(k6_ws_capacity_rejects_total[1m]))", "legendFormat": "capacity (1013, F14)" },
+        { "expr": "sum(rate(k6_ws_server_restart_total[1m]))",   "legendFormat": "service restart (1012, F15)" },
+        { "expr": "sum(rate(k6_ws_tts_errors_total[1m]))",       "legendFormat": "tts_error frames" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Auth latency p95 (ms)",
+      "id": 10,
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_lat_signup_bucket[1m])) by (le))",  "legendFormat": "signup p95" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_lat_login_bucket[1m])) by (le))",   "legendFormat": "login p95"  },
+        { "expr": "histogram_quantile(0.99, sum(rate(k6_lat_signup_bucket[1m])) by (le))",  "legendFormat": "signup p99" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Read-path latency p95 (ms)",
+      "id": 11,
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_lat_leaderboard_bucket[1m])) by (le))",     "legendFormat": "leaderboard p95 (F11/F19)" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_lat_stats_bucket[1m])) by (le))",          "legendFormat": "stats p95 (F11)" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_lat_get_transcript_bucket[1m])) by (le))", "legendFormat": "transcript p95 (F18)" },
+        { "expr": "histogram_quantile(0.95, sum(rate(k6_lat_me_bucket[1m])) by (le))",             "legendFormat": "/auth/me p95 (F4)" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Security probes",
+      "id": 12,
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 6 },
+      "targets": [
+        { "expr": "sum(increase(k6_rate_limit_429_total[1m]))",        "legendFormat": "429 hits (F7)" },
+        { "expr": "sum(increase(k6_xff_bypass_succeeded_total[1m]))",  "legendFormat": "XFF bypass attempts (F7)" },
+        { "expr": "rate(k6_jwt_invalid_rejected[1m])",                 "legendFormat": "JWT reject rate" },
+        { "expr": "rate(k6_cross_user_blocked[1m])",                   "legendFormat": "Cross-user block rate (F3)" }
+      ]
+    }
+  ]
+}

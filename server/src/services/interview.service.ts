@@ -35,13 +35,13 @@ export class InterviewService {
         return interview;
     }
 
-    // Get single interview by ID
-    async getInterviewById(id: string): Promise<IInterview | null> {
-        return await this.interviewRepository.findById(id);
+    // Get single interview by ID. `requestingUserId` enables RLS-scoped reads (F3).
+    async getInterviewById(id: string, requestingUserId?: string): Promise<IInterview | null> {
+        return await this.interviewRepository.findById(id, requestingUserId);
     }
 
-    // Update interview
-    async updateInterview(id: string, updates: Partial<IInterview>): Promise<IInterview> {
+    // Update interview. `requestingUserId` enables RLS-scoped writes (F3).
+    async updateInterview(id: string, updates: Partial<IInterview>, requestingUserId?: string): Promise<IInterview> {
         const updateData: Record<string, unknown> = {};
         if (updates.score !== undefined) updateData.score = updates.score;
         if (updates.feedback !== undefined) updateData.feedback = updates.feedback;
@@ -49,7 +49,7 @@ export class InterviewService {
         updateData.updated_at = new Date().toISOString();
 
         const interview = await newrelic.startSegment('InterviewService/updateInterview', true, async () => {
-            return this.interviewRepository.update(id, updateData);
+            return this.interviewRepository.update(id, updateData, requestingUserId);
         });
         const feedbackText = updates.feedback ?? interview.feedback;
 
@@ -63,9 +63,19 @@ export class InterviewService {
         return interview;
     }
 
-    // Add transcript message
-    async addTranscriptMessage(interviewId: string, role: 'user' | 'ai', content: string): Promise<ITranscriptMessage> {
-        const message = await this.interviewRepository.addTranscriptMessage(interviewId, role, content);
+    // Add transcript message. `requestingUserId` enables RLS-scoped writes (F3).
+    async addTranscriptMessage(
+        interviewId: string,
+        role: 'user' | 'ai',
+        content: string,
+        requestingUserId?: string,
+    ): Promise<ITranscriptMessage> {
+        const message = await this.interviewRepository.addTranscriptMessage(
+            interviewId,
+            role,
+            content,
+            requestingUserId,
+        );
 
         newrelic.recordCustomEvent('InterviewTranscriptMessage', {
             interviewId,
@@ -77,8 +87,8 @@ export class InterviewService {
     }
 
     // Get transcript for an interview
-    async getTranscript(interviewId: string): Promise<ITranscriptMessage[]> {
-        return await this.interviewRepository.getTranscript(interviewId);
+    async getTranscript(interviewId: string, requestingUserId?: string): Promise<ITranscriptMessage[]> {
+        return await this.interviewRepository.getTranscript(interviewId, requestingUserId);
     }
 
     // Get user stats
@@ -108,16 +118,13 @@ export class InterviewService {
             'system-design': 0,
         });
 
+        // F11: Rely on the `get_user_rank` RPC (uses the materialized view +
+        // composite index). Do NOT fall back to a 5k-row scan — that was the
+        // hot-path full-table query the previous implementation hit when the
+        // RPC failed. Falling back to "rank = 1" on RPC failure is acceptable
+        // (UI shows a placeholder) and infinitely cheaper than the scan.
         const sqlRank = await this.interviewRepository.getUserRank(userId);
-        let rank = sqlRank ?? 1;
-        if (sqlRank === null && averageScore > 0) {
-            const leaderboard = await this.getLeaderboard(5000);
-            for (const entry of leaderboard) {
-                if (entry.averageScore > averageScore) {
-                    rank++;
-                }
-            }
-        }
+        const rank = sqlRank ?? (averageScore > 0 ? 1 : 0);
 
         return {
             totalInterviews: allInterviews.length,

@@ -16,8 +16,15 @@ export class CodeController extends BaseController {
             throw new AppError('No code provided', 400);
         }
 
+        // F12: propagate client-disconnect to the upstream Piston call so a
+        // worker isn't blocked on a request whose client already gave up.
+        const abort = new AbortController();
+        req.on('close', () => {
+            if (!res.writableEnded) abort.abort();
+        });
+
         const userId = req.user?.id as string | undefined;
-        const output = await this.codeService.executeCode(language || 'javascript', code, userId);
+        const output = await this.codeService.executeCode(language || 'javascript', code, userId, abort.signal);
 
         this.handleSuccess(res, { output }, 'Code executed successfully');
     });

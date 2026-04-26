@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+# k6 pushes via remote-write — see docker-compose.observability.yml.
+# We also scrape the OfferFlow server's /metrics (Phase 5) so the same Grafana
+# dashboard can correlate client load with server runtime.
+scrape_configs:
+  - job_name: 'offerflow-server'
+    metrics_path: /metrics
+    # When the server has METRICS_TOKEN set, populate this file before
+    # bringing the stack up:
+    #   echo $METRICS_TOKEN > ./metrics.token
+    # then mount it into the prometheus container (see docker-compose).
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/metrics.token
+    static_configs:
+      - targets: ['host.docker.internal:5000']
+        labels:
+          service: offerflow-server
+          env: local
+
+  # Optional second job for staging — point this at your Render service URL.
+  - job_name: 'offerflow-server-staging'
+    metrics_path: /metrics
+    scheme: https
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/metrics.token
+    static_configs:
+      - targets: ['offerflow-server-staging.onrender.com']
+        labels:
+          service: offerflow-server
+          env: staging

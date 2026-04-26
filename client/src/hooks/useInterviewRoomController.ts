@@ -5,10 +5,21 @@ import { interviews } from '../services/api';
 import type { IInterview } from '../types';
 import env from '../config/env';
 import { getInterviewSessionConfig, type InterviewLanguage, type InterviewRole } from '../lib/interviewSessionConfig';
+import { StreamingAudioPlayer } from '../lib/streamingAudioPlayer';
 
 interface WSMessage {
-    type?: 'error' | 'ai_thinking' | 'ai_done' | 'pong' | 'stt_reconnecting' | 'auth_success';
+    type?:
+        | 'error'
+        | 'ai_thinking'
+        | 'ai_done'
+        | 'pong'
+        | 'stt_reconnecting'
+        | 'auth_success'
+        | 'audio_chunk'
+        | 'tts_error'
+        | 'server_shutdown';
     message?: string;
+    reason?: string;
     transcript?: string;
     audio?: string;
     isFinal?: boolean;
@@ -64,6 +75,8 @@ export function useInterviewRoomController(
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const muteReminderRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const activeAudioContextRef = useRef<AudioContext | null>(null);
+    const streamingPlayerRef = useRef<StreamingAudioPlayer | null>(null);
+    const codeAbortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         if (!id) return;
@@ -143,6 +156,14 @@ export function useInterviewRoomController(
         if (activeAudioContextRef.current && activeAudioContextRef.current.state !== 'closed') {
             activeAudioContextRef.current.close().catch(() => undefined);
             activeAudioContextRef.current = null;
+        }
+        if (streamingPlayerRef.current) {
+            streamingPlayerRef.current.destroy();
+            streamingPlayerRef.current = null;
+        }
+        if (codeAbortRef.current) {
+            codeAbortRef.current.abort();
+            codeAbortRef.current = null;
         }
     };
 
@@ -292,6 +313,16 @@ export function useInterviewRoomController(
                     return;
                 }
 
+                if (data.type === 'tts_error') {
+                    toast.warning(data.message || 'AI voice is unavailable; transcript continues.');
+                    return;
+                }
+
+                if (data.type === 'server_shutdown') {
+                    toast.info(data.message || 'Server is restarting; please reconnect.');
+                    return;
+                }
+
                 if (data.type === 'pong') return;
 
                 if (data.transcript) {
@@ -309,6 +340,33 @@ export function useInterviewRoomController(
                     }
                 }
 
+                /**
+                 * F1 + F22: streaming TTS playback. The server now emits
+                 * { type: 'audio_chunk', audio: <b64>, isFinal } per MP3
+                 * chunk. We hand each chunk to the StreamingAudioPlayer,
+                 * which appends it to a MediaSource SourceBuffer so the
+                 * browser starts playback as soon as the first chunk lands
+                 * and decoding happens off the main thread.
+                 */
+                if (data.type === 'audio_chunk') {
+                    if (!streamingPlayerRef.current) {
+                        streamingPlayerRef.current = new StreamingAudioPlayer({
+                            onError: (err) => console.warn('[tts-player] error', err),
+                        });
+                    }
+                    streamingPlayerRef.current.push(data.audio || '', !!data.isFinal);
+                    if (data.isFinal) {
+                        // After this stream finishes, drop the player so
+                        // the next utterance starts a fresh MediaSource.
+                        const finishedPlayer = streamingPlayerRef.current;
+                        streamingPlayerRef.current = null;
+                        setTimeout(() => finishedPlayer?.destroy(), 5_000);
+                    }
+                    return;
+                }
+
+                // Legacy single-frame audio (kept for backwards compatibility
+                // with older server builds; new server uses audio_chunk).
                 if (data.audio) {
                     try {
                         const win = window as unknown as CustomWindow;
@@ -422,6 +480,12 @@ export function useInterviewRoomController(
         setCode(codeTemplates[newLanguage] || codeTemplates.javascript);
     };
 
+    /**
+     * F21: code execution with abort + timeout. We cancel any prior
+     * in-flight run before starting a new one, set a hard 35s client
+     * timeout, and surface AbortError distinctly so users see the
+     * cancellation rather than a generic network failure.
+     */
     const runCode = async () => {
         setOutput('Running...');
         const token = localStorage.getItem('token');
@@ -431,6 +495,13 @@ export function useInterviewRoomController(
             return;
         }
 
+        if (codeAbortRef.current) {
+            codeAbortRef.current.abort();
+        }
+        const controller = new AbortController();
+        codeAbortRef.current = controller;
+        const timeoutId = setTimeout(() => controller.abort(), 35_000);
+
         try {
             const response = await fetch(`${env.API_URL}/interviews/execute`, {
                 method: 'POST',
@@ -439,6 +510,7 @@ export function useInterviewRoomController(
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({ language, code }),
+                signal: controller.signal,
             });
 
             const data = await response.json();
@@ -450,9 +522,19 @@ export function useInterviewRoomController(
                 toast.error(data.message || 'Execution failed');
             }
         } catch (err) {
-            console.error('Execution Error:', err);
-            setOutput('Failed to connect to execution server.');
-            toast.error('Network error during execution');
+            if ((err as Error)?.name === 'AbortError') {
+                setOutput('Execution cancelled.');
+                toast.warning('Code execution cancelled');
+            } else {
+                console.error('Execution Error:', err);
+                setOutput('Failed to connect to execution server.');
+                toast.error('Network error during execution');
+            }
+        } finally {
+            clearTimeout(timeoutId);
+            if (codeAbortRef.current === controller) {
+                codeAbortRef.current = null;
+            }
         }
     };
 
@@ -462,6 +544,7 @@ export function useInterviewRoomController(
             if (win._sharedAudioContext && win._sharedAudioContext.state === 'suspended') {
                 win._sharedAudioContext.resume();
             }
+            streamingPlayerRef.current?.resume();
         };
         window.addEventListener('click', handleGesture);
         window.addEventListener('touchstart', handleGesture, { passive: true });

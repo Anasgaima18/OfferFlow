@@ -1,0 +1,39 @@
+version: '3.8'
+
+# Local Prometheus + Grafana for k6 → metrics → dashboards.
+# Start with: docker compose -f loadtest/docker-compose.observability.yml up -d
+# Then run k6 with:
+#   k6 run --out experimental-prometheus-rw=http://localhost:9090/api/v1/write loadtest/k6/<script>.js
+# And open Grafana at http://localhost:3000 (admin/admin) — both dashboards
+# (k6 + offerflow-server) auto-provision.
+
+# If your server runs with METRICS_TOKEN set, write the token to
+#   loadtest/metrics.token
+# before bringing the stack up so the Prometheus scrape job can authenticate.
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=native-histograms
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      # Linux compatibility for host.docker.internal
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./metrics.token:/etc/prometheus/metrics.token:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana:/var/lib/grafana/dashboards-src:ro
