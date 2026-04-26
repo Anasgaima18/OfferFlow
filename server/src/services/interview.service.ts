@@ -1,4 +1,5 @@
 import { AppError } from '../utils/appError';
+import newrelic from 'newrelic';
 import { IInterview, CreateInterviewInput, InterviewType, ITranscriptMessage } from '../models/Interview';
 import { InterviewRepository } from '../repositories/InterviewRepository';
 
@@ -7,7 +8,9 @@ export class InterviewService {
 
     // Get all interviews for a user
     async getAllInterviews(userId: string): Promise<IInterview[]> {
-        return await this.interviewRepository.findAllByUserId(userId);
+        return await newrelic.startSegment('InterviewService/getAllInterviews', true, async () => {
+            return this.interviewRepository.findAllByUserId(userId);
+        });
     }
 
     // Create a new interview
@@ -18,7 +21,18 @@ export class InterviewService {
             throw new AppError('Invalid interview type', 400);
         }
 
-        return await this.interviewRepository.create(input);
+        const interview = await newrelic.startSegment('InterviewService/createInterview', true, async () => {
+            return this.interviewRepository.create(input);
+        });
+
+        newrelic.recordCustomEvent('InterviewCreated', {
+            interviewId: interview.id,
+            userId: input.user_id,
+            type: input.type,
+            status: interview.status,
+        });
+
+        return interview;
     }
 
     // Get single interview by ID
@@ -34,12 +48,32 @@ export class InterviewService {
         if (updates.status !== undefined) updateData.status = updates.status;
         updateData.updated_at = new Date().toISOString();
 
-        return await this.interviewRepository.update(id, updateData);
+        const interview = await newrelic.startSegment('InterviewService/updateInterview', true, async () => {
+            return this.interviewRepository.update(id, updateData);
+        });
+        const feedbackText = updates.feedback ?? interview.feedback;
+
+        newrelic.recordCustomEvent('InterviewUpdated', {
+            interviewId: id,
+            status: updates.status ?? interview.status,
+            score: updates.score ?? interview.score ?? 0,
+            hasFeedback: typeof feedbackText === 'string' && feedbackText.length > 0,
+        });
+
+        return interview;
     }
 
     // Add transcript message
     async addTranscriptMessage(interviewId: string, role: 'user' | 'ai', content: string): Promise<ITranscriptMessage> {
-        return await this.interviewRepository.addTranscriptMessage(interviewId, role, content);
+        const message = await this.interviewRepository.addTranscriptMessage(interviewId, role, content);
+
+        newrelic.recordCustomEvent('InterviewTranscriptMessage', {
+            interviewId,
+            role,
+            contentLength: content.length,
+        });
+
+        return message;
     }
 
     // Get transcript for an interview
@@ -100,12 +134,15 @@ export class InterviewService {
 
     // Get leaderboard
     async getLeaderboard(limit: number = 10) {
-        const fullLeaderboard = await this.interviewRepository.getLeaderboard();
+        const fullLeaderboard = await newrelic.startSegment('InterviewService/getLeaderboard', true, async () => {
+            return this.interviewRepository.getLeaderboard();
+        });
+        type LeaderboardEntry = (typeof fullLeaderboard)[number];
 
         const firstLeaderboardEntry = fullLeaderboard[0];
 
         if (firstLeaderboardEntry && firstLeaderboardEntry.average_score !== undefined) {
-            return fullLeaderboard.slice(0, limit).map((entry, index) => ({
+            return fullLeaderboard.slice(0, limit).map((entry: LeaderboardEntry, index: number) => ({
                 rank: entry.rank ?? index + 1,
                 userId: entry.user_id,
                 name: entry.name || 'Unknown',

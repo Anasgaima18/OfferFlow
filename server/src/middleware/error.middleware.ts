@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import newrelic from 'newrelic';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
 import { config } from '../config/env';
@@ -15,6 +16,23 @@ export const globalErrorHandler = (
 
     // Log the error
     Logger.error(`[${req.method}] ${req.url} - ${err.message}`, err);
+
+    newrelic.recordCustomEvent('ApiError', {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode,
+        isOperational: isAppError ? err.isOperational : false,
+        userId: req.user?.id ?? 'anonymous',
+    });
+
+    if (statusCode >= 500 || !isAppError) {
+        newrelic.noticeError(err, {
+            method: req.method,
+            path: req.originalUrl,
+            statusCode,
+            userId: req.user?.id ?? 'anonymous',
+        });
+    }
 
     if (config.NODE_ENV === 'development') {
         return res.status(statusCode).json({

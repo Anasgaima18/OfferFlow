@@ -31,6 +31,36 @@ services:
         sync: false
       - key: CLIENT_URL
         sync: false          # Set to the static site URL after first deploy
+      - key: NEW_RELIC_ENABLED
+        value: "false"
+      - key: NEW_RELIC_APP_NAME
+        value: OfferFlow-API
+      - key: NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: NEW_RELIC_LOG_LEVEL
+        value: info
+      - key: NEW_RELIC_LOG
+        value: stdout
+      - key: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
+        value: "true"
+      - key: NEW_RELIC_TRANSACTION_TRACER_ENABLED
+        value: "true"
+      - key: NEW_RELIC_ERROR_COLLECTOR_ENABLED
+        value: "true"
+      - key: NEW_RELIC_ERROR_COLLECTOR_IGNORE_STATUS_CODES
+        value: 401,404
+      - key: NEW_RELIC_ATTRIBUTES_ENABLED
+        value: "true"
+      - key: NEW_RELIC_APPLICATION_LOGGING_ENABLED
+        value: "true"
+      - key: NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED
+        value: "true"
+      - key: NEW_RELIC_APPLICATION_LOGGING_METRICS_ENABLED
+        value: "true"
+      - key: NEW_RELIC_AI_MONITORING_ENABLED
+        value: "false"
+      - key: NEW_RELIC_AI_MONITORING_RECORD_CONTENT_ENABLED
+        value: "false"
 
   # ── Frontend (Static Site) ─────────────────────────────
   - type: web
@@ -57,3 +87,21 @@ services:
         sync: false          # Set to https://offerflow-server.onrender.com/api/v1
       - key: VITE_WS_URL
         sync: false          # Set to wss://offerflow-server.onrender.com/api/v1/interviews/ws
+      - key: VITE_NEW_RELIC_ENABLED
+        value: "false"
+      - key: VITE_NEW_RELIC_ACCOUNT_ID
+        sync: false
+      - key: VITE_NEW_RELIC_TRUST_KEY
+        sync: false
+      - key: VITE_NEW_RELIC_AGENT_ID
+        sync: false
+      - key: VITE_NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: VITE_NEW_RELIC_APPLICATION_ID
+        sync: false
+      - key: VITE_NEW_RELIC_BEACON
+        value: bam.nr-data.net
+      - key: VITE_NEW_RELIC_ERROR_BEACON
+        value: bam.nr-data.net
+      - key: VITE_NEW_RELIC_DISTRIBUTED_TRACING_ORIGINS
+        sync: false

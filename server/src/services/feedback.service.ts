@@ -1,5 +1,6 @@
 import { InterviewService } from './interview.service';
 import { SarvamService } from './sarvam.service';
+import newrelic from 'newrelic';
 import { Logger } from '../utils/logger';
 import { z } from 'zod';
 
@@ -27,6 +28,10 @@ export class FeedbackService {
 
         if (!transcript || transcript.length === 0) {
             Logger.warn(`No transcript found for interview ${interviewId}, returning default feedback`);
+            newrelic.recordCustomEvent('InterviewFeedbackFallback', {
+                interviewId,
+                reason: 'empty-transcript',
+            });
             return this.getDefaultFeedback();
         }
 
@@ -53,7 +58,9 @@ export class FeedbackService {
                 { role: 'user', content: `Analyze this interview transcript:\n\n${conversationText}` }
             ];
 
-            const aiResponse = await this.sarvamService.generateResponse(analysisPrompt);
+            const aiResponse = await newrelic.startSegment('FeedbackService/generateResponse', true, async () => {
+                return this.sarvamService.generateResponse(analysisPrompt);
+            });
 
             // Parse AI response as JSON — try direct parse first, then regex fallback
             const parsed = this.parseAIFeedback(aiResponse);
@@ -63,10 +70,32 @@ export class FeedbackService {
                     feedback: parsed.summary,
                     status: 'completed'
                 });
+
+                newrelic.recordCustomEvent('InterviewFeedbackGenerated', {
+                    interviewId,
+                    overallScore: parsed.overallScore,
+                    strengthsCount: parsed.strengths.length,
+                    improvementsCount: parsed.improvements.length,
+                    transcriptMessageCount: transcript.length,
+                });
+
                 return parsed;
             }
+
+            newrelic.recordCustomEvent('InterviewFeedbackFallback', {
+                interviewId,
+                reason: 'parse-failed',
+            });
         } catch (err) {
             Logger.error('Failed to generate AI feedback, using default', err);
+            newrelic.noticeError(err instanceof Error ? err : new Error(String(err)), {
+                interviewId,
+                stage: 'feedback-generation',
+            });
+            newrelic.recordCustomEvent('InterviewFeedbackFallback', {
+                interviewId,
+                reason: 'exception',
+            });
         }
 
         // Return default feedback but do NOT save fake scores to the database

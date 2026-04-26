@@ -15,9 +15,10 @@
     "@gsap/react": "^2.1.2",
     "@hookform/resolvers": "^5.2.2",
     "@monaco-editor/react": "^4.7.0",
+    "@newrelic/browser-agent": "^1.313.1",
     "@tanstack/react-query": "^5.90.5",
     "animejs": "^3.2.2",
-    "axios": "^1.13.2",
+    "axios": "^1.15.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.27.2",
     "gsap": "^3.14.2",
@@ -50,5 +51,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"
+  },
+  "overrides": {
+    "dompurify": "3.4.1"
   }
 }

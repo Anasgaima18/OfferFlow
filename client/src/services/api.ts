@@ -1,6 +1,7 @@
 import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
 import { IInterview, InterviewType, ITranscriptMessage } from '../types';
 import env from '../config/env';
+import { noticeBrowserError, setBrowserAttribute, trackPageAction } from '../lib/newRelicBrowser';
 
 // --- API Response Types ---
 
@@ -98,6 +99,12 @@ export interface FeedbackResponse {
 
 // --- Axios Instance ---
 
+interface TelemetryRequestConfig extends InternalAxiosRequestConfig {
+  metadata?: {
+    startedAt: number;
+  };
+}
+
 const api = axios.create({
   baseURL: env.API_URL,
   headers: {
@@ -108,19 +115,67 @@ const api = axios.create({
 // Add a request interceptor to add the auth token to requests
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    const telemetryConfig = config as TelemetryRequestConfig;
+    telemetryConfig.metadata = { startedAt: performance.now() };
+
     const token = localStorage.getItem('token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    setBrowserAttribute('api.lastRequestPath', config.url ?? 'unknown');
+
     return config;
   },
-  (error: AxiosError) => Promise.reject(error)
+  (error: AxiosError) => {
+    noticeBrowserError(error, {
+      phase: 'request-interceptor',
+      path: error.config?.url ?? 'unknown',
+      method: error.config?.method?.toUpperCase() ?? 'UNKNOWN',
+    });
+    return Promise.reject(error);
+  }
 );
 
 // Add a response interceptor to handle expired/invalid tokens
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const telemetryConfig = response.config as TelemetryRequestConfig;
+    const durationMs = telemetryConfig.metadata
+      ? Number((performance.now() - telemetryConfig.metadata.startedAt).toFixed(2))
+      : -1;
+
+    trackPageAction('ApiRequest', {
+      path: response.config.url ?? 'unknown',
+      method: response.config.method?.toUpperCase() ?? 'UNKNOWN',
+      statusCode: response.status,
+      durationMs,
+    });
+
+    setBrowserAttribute('api.lastStatusCode', response.status);
+    return response;
+  },
   (error: AxiosError) => {
+    const telemetryConfig = (error.config as TelemetryRequestConfig | undefined);
+    const durationMs = telemetryConfig?.metadata
+      ? Number((performance.now() - telemetryConfig.metadata.startedAt).toFixed(2))
+      : -1;
+
+    trackPageAction('ApiRequestError', {
+      path: error.config?.url ?? 'unknown',
+      method: error.config?.method?.toUpperCase() ?? 'UNKNOWN',
+      statusCode: error.response?.status ?? 0,
+      durationMs,
+      hasResponse: Boolean(error.response),
+    });
+
+    noticeBrowserError(error, {
+      phase: 'response-interceptor',
+      path: error.config?.url ?? 'unknown',
+      method: error.config?.method?.toUpperCase() ?? 'UNKNOWN',
+      statusCode: error.response?.status ?? 0,
+    });
+
     if (error.response?.status === 401) {
       // Token is invalid or user no longer exists — clear auth state
       localStorage.removeItem('token');

@@ -198,6 +198,9 @@ cp server/.env.example server/.env
 | `CLIENT_URL` | No | CORS allowed origins (comma-separated) | `http://localhost:5173` |
 | `API_BASE_URL` | No | Public backend base URL used for OAuth callbacks | `http://localhost:5000` |
 | `SENTRY_DSN` | No | Backend Sentry DSN | — |
+| `NEW_RELIC_ENABLED` | No | Enable New Relic APM agent (`true`/`false`) | `false` |
+| `NEW_RELIC_APP_NAME` | No | New Relic service name reported by backend | `OfferFlow-API` |
+| `NEW_RELIC_LICENSE_KEY` | No | New Relic license key (required when enabled) | — |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client ID | — |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret | — |
 | `GITHUB_CLIENT_ID` | No | GitHub OAuth client ID | — |

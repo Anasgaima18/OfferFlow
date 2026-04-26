@@ -2,6 +2,7 @@ import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
 import { URL } from 'url';
+import newrelic from 'newrelic';
 import { Logger } from '../utils/logger';
 import { SarvamService } from '../services/sarvam.service';
 import { ElevenLabsService } from '../services/elevenlabs.service';
@@ -62,6 +63,9 @@ export function setupWebSocket(
 
     wss.on('connection', async (ws, req) => {
         Logger.info('Client attempting to connect to Interview Room');
+        newrelic.recordCustomEvent('InterviewWsConnectionAttempt', {
+            path: req.url ?? '/api/v1/interviews/ws',
+        });
 
         const url = new URL(req.url || '', `http://${req.headers.host}`);
         const interviewId = url.searchParams.get('interviewId');
@@ -82,6 +86,10 @@ export function setupWebSocket(
         if (!userId) return; // Client was disconnected or auth failed
 
         ws.send(JSON.stringify({ type: 'auth_success' }));
+        newrelic.recordCustomEvent('InterviewWsConnectionEstablished', {
+            userId,
+            interviewId: interviewId ?? 'none',
+        });
 
         // --- B1: Load interview record and build dynamic system prompt ---
         const interviewType = await initializeInterview(ws, interviewId, userId, interviewService);
@@ -139,9 +147,20 @@ async function authenticateClient(ws: WebSocket): Promise<string | null> {
 
         const decoded = jwt.verify(authData.token, config.JWT_SECRET) as { id: string };
         Logger.info(`WebSocket authenticated for user: ${decoded.id}`);
+        newrelic.setUserID(decoded.id);
+        newrelic.addCustomAttribute('ws.userId', decoded.id);
+        newrelic.recordCustomEvent('InterviewWsAuthenticated', {
+            userId: decoded.id,
+        });
         return decoded.id;
     } catch (err) {
         Logger.error('WebSocket auth failed', err);
+        newrelic.noticeError(err instanceof Error ? err : new Error(String(err)), {
+            stage: 'ws-authentication',
+        });
+        newrelic.recordCustomEvent('InterviewWsAuthFailure', {
+            reason: err instanceof jwt.TokenExpiredError ? 'token-expired' : 'invalid-token',
+        });
         const message = err instanceof jwt.TokenExpiredError
             ? 'Token expired'
             : 'Invalid or expired token';
@@ -176,8 +195,18 @@ async function initializeInterview(ws: WebSocket, interviewId: string | null, us
             interviewType = interviewRecord.type;
             await interviewService.updateInterview(interviewId, { status: 'in-progress' });
             Logger.info(`Interview ${interviewId} (${interviewType}) status set to in-progress`);
+            newrelic.recordCustomEvent('InterviewWsSessionStarted', {
+                interviewId,
+                userId,
+                interviewType,
+            });
         } catch (e) {
             Logger.warn(`Could not load/update interview: ${(e as Error).message}`);
+            newrelic.noticeError(e instanceof Error ? e : new Error(String(e)), {
+                stage: 'ws-initialize-interview',
+                interviewId: interviewId ?? 'none',
+                userId,
+            });
             ws.send(JSON.stringify({ type: 'error', message: 'Unable to start interview session' }));
             ws.close(1011, 'Interview initialization failed');
             return null;
@@ -273,6 +302,11 @@ class InterviewSession {
             }
         } catch (err) {
             Logger.error('Failed to generate AI greeting', err);
+            newrelic.noticeError(err instanceof Error ? err : new Error(String(err)), {
+                stage: 'ws-ai-greeting',
+                interviewId: this.interviewId ?? 'none',
+                userId: this.userId,
+            });
         }
     }
 
@@ -327,6 +361,13 @@ class InterviewSession {
         if (this.interviewId && this.hasTranscript) {
             const durationMs = Date.now() - this.startedAt;
             const durationMin = Math.round(durationMs / 60000);
+
+            newrelic.recordCustomEvent('InterviewWsSessionEnded', {
+                interviewId: this.interviewId,
+                userId: this.userId,
+                durationMs,
+                hadTranscript: this.hasTranscript,
+            });
 
             try {
                 await this.interviewService.updateInterview(this.interviewId, { status: 'completed' });
@@ -432,6 +473,15 @@ class InterviewSession {
             this.speakText(aiResponse);
         } catch (err) {
             Logger.error('AI Processing Error', err);
+            newrelic.noticeError(err instanceof Error ? err : new Error(String(err)), {
+                stage: 'ws-ai-processing',
+                interviewId: this.interviewId ?? 'none',
+                userId: this.userId,
+            });
+            newrelic.recordCustomEvent('InterviewWsAiFailure', {
+                interviewId: this.interviewId ?? 'none',
+                userId: this.userId,
+            });
             this.ws.send(JSON.stringify({ type: 'ai_done' }));
             this.ws.send(JSON.stringify({ type: 'error', message: 'AI Processing Failed' }));
         } finally {
@@ -470,6 +520,15 @@ class InterviewSession {
                 },
                 (error) => {
                     Logger.error('Sarvam WS Error', error);
+                    newrelic.noticeError(error instanceof Error ? error : new Error(String(error)), {
+                        stage: 'ws-sarvam-stream',
+                        interviewId: this.interviewId ?? 'none',
+                        userId: this.userId,
+                    });
+                    newrelic.recordCustomEvent('InterviewWsSttError', {
+                        interviewId: this.interviewId ?? 'none',
+                        userId: this.userId,
+                    });
                     if (this.ws.readyState === WebSocket.OPEN) {
                         this.ws.send(JSON.stringify({ type: 'error', message: 'Voice Service Connection Failed (Sarvam)' }));
                     }
@@ -504,6 +563,10 @@ class InterviewSession {
                 } else {
                     this.sarvamFailed = true;
                     Logger.error('Sarvam STT max reconnect attempts reached');
+                    newrelic.recordCustomEvent('InterviewWsSttMaxReconnectReached', {
+                        interviewId: this.interviewId ?? 'none',
+                        userId: this.userId,
+                    });
                     if (this.ws.readyState === this.ws.OPEN) {
                         this.ws.send(JSON.stringify({ type: 'error', message: 'Voice recognition disconnected. Please toggle your microphone to reconnect.' }));
                     }
@@ -512,6 +575,11 @@ class InterviewSession {
         } catch (e) {
             this.sarvamConnecting = false;
             Logger.error('Failed to connect Sarvam STT', e);
+            newrelic.noticeError(e instanceof Error ? e : new Error(String(e)), {
+                stage: 'ws-sarvam-connect',
+                interviewId: this.interviewId ?? 'none',
+                userId: this.userId,
+            });
             if (this.ws.readyState === this.ws.OPEN) {
                 this.ws.send(JSON.stringify({ type: 'error', message: 'Failed to start voice recognition' }));
             }

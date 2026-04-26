@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Suspense, lazy, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { Suspense, lazy, useEffect, useRef } from 'react';
 import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { AuthProvider } from './context/AuthProvider';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -35,6 +35,21 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 import { Toaster } from 'sonner';
 import { SmoothScrollProvider } from './components/SmoothScrollProvider';
 import ScrollProgress from './components/ScrollProgress';
+import { setBrowserAttribute, trackPageAction } from './lib/newRelicBrowser';
+
+const RouteTelemetry = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    setBrowserAttribute('route.path', location.pathname, true);
+    trackPageAction('RouteChange', {
+      path: location.pathname,
+      search: location.search || 'none',
+    });
+  }, [location.pathname, location.search]);
+
+  return null;
+};
 
 const PageLoader = () => {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -82,6 +97,7 @@ function App() {
       <LazyMotion features={domAnimation}>
         <Router>
           <AuthProvider>
+          <RouteTelemetry />
           <SmoothScrollProvider>
             <div className="min-h-screen bg-background text-white selection:bg-primary/30">
               <ScrollProgress />

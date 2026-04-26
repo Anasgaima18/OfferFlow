@@ -81,12 +81,12 @@ test('auth flow signs in and lands on dashboard', async ({ page }) => {
 
   await page.goto('/login');
   await page.getByLabel('Email').fill('candidate@example.com');
-  await page.getByLabel('Password').fill('Password123');
+  await page.getByLabel('Password', { exact: true }).fill('Password123');
   await page.getByRole('button', { name: 'Sign In' }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole('heading', { name: 'DASHBOARD' })).toBeVisible();
-  await expect(page.getByText('Welcome back, Test.')).toBeVisible();
+  await expect(page.getByText(/Test, this is your operating layer/)).toBeVisible();
 });
 
 test('interview setup creates a session and navigates into the room', async ({ page }) => {
@@ -206,7 +206,7 @@ test('interview setup creates a session and navigates into the room', async ({ p
 
   await page.goto('/interview-setup');
   await page.getByRole('button', { name: 'Connect' }).click();
-  await page.getByRole('button', { name: /Technical Live coding challenge/ }).click();
+  await page.getByRole('button', { name: /^Technical\b/ }).click();
   await page.getByRole('button', { name: 'Python' }).click();
   await page.getByRole('button', { name: 'Start Interview' }).click();
 
@@ -246,7 +246,7 @@ test('feedback report renders generated feedback', async ({ page }) => {
 
   await page.goto('/feedback/test-feedback');
 
-  await expect(page.getByText('Interview Complete!')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'FEEDBACK REPORT' })).toBeVisible();
   await expect(page.getByText('88')).toBeVisible();
   await expect(page.getByText('Strong interview with clear communication and solid debugging depth.')).toBeVisible();
   await expect(page.getByText('Explained tradeoffs clearly')).toBeVisible();

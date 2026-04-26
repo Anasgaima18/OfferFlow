@@ -2,6 +2,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Load New Relic as early as possible after env is available.
+import newrelic from 'newrelic';
+
 // Validate environment variables immediately (env singleton is created on import)
 import { config } from './config/env';
 
@@ -15,6 +18,7 @@ import compression from 'compression';
 import { Logger } from './utils/logger';
 import { globalLimiter } from './middleware/rateLimit.middleware';
 import { AppError } from './utils/appError';
+import { enrichNewRelicRequest } from './middleware/observability.middleware';
 
 // Initialize Supabase client (after dotenv)
 import './config/supabase';
@@ -60,7 +64,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'newrelic', 'traceparent', 'tracestate', 'x-request-id'],
 }));
 
 // S3: Helmet hardening
@@ -92,6 +96,9 @@ if (isProduction) {
 
 // Body parsing with size limit
 app.use(express.json({ limit: '1mb' }));
+
+// Add request-level New Relic context and custom request events.
+app.use(enrichNewRelicRequest);
 
 // S2: Global rate limiter
 app.use(globalLimiter);
@@ -151,10 +158,14 @@ setupWebSocket(server, interviewService, sarvamService, elevenLabsService, feedb
 
 // --- R1: Global process error handlers ---
 process.on('unhandledRejection', (reason: unknown) => {
+    newrelic.noticeError(new Error('Unhandled Rejection'), {
+        reason: reason instanceof Error ? reason.message : String(reason),
+    });
     Logger.error('Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (error: Error) => {
+    newrelic.noticeError(error);
     Logger.error('Uncaught Exception:', error);
     process.exit(1);
 });

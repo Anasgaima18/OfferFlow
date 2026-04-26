@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.tsx'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/queryClient'
+import { initNewRelicBrowser } from './lib/newRelicBrowser'
+
+initNewRelicBrowser()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
