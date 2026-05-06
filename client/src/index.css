@@ -7,6 +7,11 @@
 
 @import "tailwindcss";
 
+/*---break---
+ */
+
+@custom-variant dark (&:is(.dark *));
+
 /* Design tokens: typography (font-pixel display, font-mono UI, font-sans body), two-color palette (primary amber, secondary teal), dark background. */
 @theme {
   --color-background: #050505;
@@ -23,6 +28,7 @@
   color-scheme: dark;
   --primary-rgb: 255, 184, 0;
   --secondary-rgb: 20, 184, 166;
+  --button-ripple-color: oklch(0.145 0 0 / 0.3);
 }
 
 body {
@@ -411,21 +417,24 @@ body::after {
 .trust-strip {
   display: flex;
   align-items: center;
-  gap: 2rem;
-  opacity: 0.45;
-  transition: opacity 0.3s;
-}
-.trust-strip:hover {
-  opacity: 0.65;
+  gap: 2.1rem;
+  padding: 0.2rem 0;
+  transition: opacity 0.2s ease;
 }
 
 .trust-logo {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #71717a;
+  color: #8b8b95;
   white-space: nowrap;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.trust-logo:hover {
+  color: #d4d4d8;
+  transform: translateY(-1px);
 }
 
 /* ─── Stats Row ─── */
@@ -762,4 +771,24 @@ body::after {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+/*---break---
+ */
+@theme inline {
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-none: 0px;
+  --radius-xs: 0.125rem;
+  --radius-default: 0.375rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 1.875rem;
+  --radius-full: 9999px;
+  --color-button-ripple-color: var(--button-ripple-color);
+}
+/*---break---
+ */
+.dark {
+  --button-ripple-color: oklch(0.985 0 0 / 0.5);
 }

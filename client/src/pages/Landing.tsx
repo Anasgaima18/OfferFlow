@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { m } from 'framer-motion';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
 import ProcessSection from '../components/ProcessSection';
@@ -12,6 +13,7 @@ import { useStaggerFadeIn, useFadeIn, useAnimeStagger, prefersReducedMotion } fr
 import BlurFade from '../components/ui/BlurFade';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import TiltCard from '../components/ui/TiltCard';
+import HoverGlowButton from '../components/ui/HoverGlowButton';
 
 const featureCards = [
   {
@@ -80,7 +82,10 @@ const Landing: React.FC = () => {
   useGSAP(() => {
     if (prefersReducedMotion() || !featuresSectionRef.current) return;
     const section = featuresSectionRef.current;
-    gsap.to(section.querySelector('.features-parallax-bg'), {
+    const parallaxBackground = section.querySelector<HTMLElement>('.features-parallax-bg');
+    if (!parallaxBackground) return;
+
+    gsap.to(parallaxBackground, {
       y: -120,
       ease: 'none',
       scrollTrigger: {
@@ -158,6 +163,28 @@ const Landing: React.FC = () => {
         </div>
       </section>
       <ProcessSection />
+      <section className="py-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <SurfaceCard interactive className="p-8 md:p-10 border-white/10 bg-black/35">
+            <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+              <div>
+                <div className="section-kicker mb-4">Final Step</div>
+                <h2 className="font-pixel text-4xl tracking-[0.07em] text-white">Start your first pressure rep now.</h2>
+                <p className="mt-3 text-sm md:text-base font-mono leading-relaxed text-zinc-400 max-w-2xl">
+                  Your score improves when your practice loop is deliberate. Run one interview, inspect the misses, then run the next with intent.
+                </p>
+              </div>
+              <div className="w-full md:w-64">
+                <Link to="/signup" className="block">
+                  <HoverGlowButton className="w-full">
+                    Try OfferFlow Free
+                  </HoverGlowButton>
+                </Link>
+              </div>
+            </div>
+          </SurfaceCard>
+        </div>
+      </section>
     </main>
     <Footer />
   </>

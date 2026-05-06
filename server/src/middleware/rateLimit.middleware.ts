@@ -37,11 +37,15 @@ if (REDIS_URL) {
         redis = null;
     }
 } else {
-    Logger.warn(
+    const message =
         '[rate-limit] REDIS_URL not set — using in-memory store. ' +
         'This will NOT enforce limits correctly across multiple Render instances ' +
-        'and resets on cold-start. Set REDIS_URL for production.'
-    );
+        'and resets on cold-start. Set REDIS_URL for production.';
+    if (process.env.NODE_ENV === 'production') {
+        Logger.warn(message);
+    } else {
+        Logger.info(message);
+    }
 }
 
 function makeStore(prefix: string) {

@@ -4,6 +4,7 @@ import { ArrowRight, Compass, Plus, Sparkles, Terminal, Timer, Trophy, Waves, Za
 import { toast } from 'sonner';
 import Button from '../components/ui/Button';
 import BlurFade from '../components/ui/BlurFade';
+import HoverGlowButton from '../components/ui/HoverGlowButton';
 import PageHero from '../components/ui/PageHero';
 import PageLayout from '../components/ui/PageLayout';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -139,10 +140,12 @@ export default function Dashboard() {
                 ]}
                 actions={
                     <>
-                        <Button variant="primary" size="lg" onClick={() => navigate('/interview-setup')}>
-                            <Plus size={18} />
-                            Launch New Interview
-                        </Button>
+                        <div className="min-w-[220px]">
+                            <HoverGlowButton onClick={() => navigate('/interview-setup')}>
+                                <Plus size={18} />
+                                Launch New Interview
+                            </HoverGlowButton>
+                        </div>
                         <Button variant="secondary" size="lg" onClick={() => navigate('/analytics')}>View Analytics</Button>
                     </>
                 }
@@ -194,7 +197,7 @@ export default function Dashboard() {
                         ))
                     : statCards.map((stat, index) => (
                             <BlurFade key={stat.label} delay={index * 0.05}>
-                                <SurfaceCard className="premium-panel p-6 transition-transform duration-300 hover:-translate-y-1">
+                                <SurfaceCard className="premium-panel p-6" interactive>
                                     <div className="mb-4 flex items-center justify-between">
                                         <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">{stat.label}</span>
                                         <div className={`rounded-2xl border border-white/10 bg-white/5 p-3 ${stat.accent}`}>{stat.icon}</div>
@@ -207,7 +210,7 @@ export default function Dashboard() {
 
             <section className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
                 <BlurFade>
-                    <SurfaceCard className="premium-panel overflow-hidden">
+                    <SurfaceCard className="premium-panel overflow-hidden" interactive>
                         <div className="flex items-center justify-between border-b border-white/8 px-6 py-5">
                             <div>
                                 <h2 className="font-pixel text-2xl tracking-[0.08em] text-white">RECENT ACTIVITY</h2>
@@ -296,7 +299,7 @@ export default function Dashboard() {
                     {quickActions.map((action, index) => (
                         <BlurFade key={action.title} delay={0.08 + index * 0.05}>
                             <Link to={action.href}>
-                                <SurfaceCard className="premium-panel p-6 transition-transform duration-300 hover:-translate-y-1">
+                                <SurfaceCard className="premium-panel p-6" interactive>
                                     <div className="mb-5 flex items-center justify-between">
                                         <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-primary">{action.icon}</div>
                                         <ArrowRight size={18} className="text-zinc-500" />
@@ -309,7 +312,7 @@ export default function Dashboard() {
                     ))}
 
                     <BlurFade delay={0.18}>
-                        <SurfaceCard className="premium-panel p-6">
+                        <SurfaceCard className="premium-panel p-6" interactive>
                             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-secondary">
                                 <Sparkles size={14} />
                                 Coach Note

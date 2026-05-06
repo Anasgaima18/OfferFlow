@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
-import newrelic from 'newrelic';
+import apm from '../observability/apm';
 
 const toPathWithoutQuery = (url: string): string => url.split('?')[0] ?? url;
 
@@ -30,7 +30,7 @@ export const enrichNewRelicRequest = (req: Request, res: Response, next: NextFun
 
     res.setHeader('x-request-id', requestId);
 
-    newrelic.addCustomAttributes({
+    apm.addCustomAttributes({
         requestId,
         requestPath: toPathWithoutQuery(req.originalUrl),
         requestMethod: req.method,
@@ -41,7 +41,7 @@ export const enrichNewRelicRequest = (req: Request, res: Response, next: NextFun
         const durationNs = process.hrtime.bigint() - startedAtNs;
         const durationMs = Number(durationNs) / 1_000_000;
 
-        newrelic.recordCustomEvent('ApiRequest', {
+        apm.recordCustomEvent('ApiRequest', {
             requestId,
             method: req.method,
             path: toPathWithoutQuery(req.originalUrl),

@@ -5,6 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { auth } from '../services/api';
+import PageLayout from '../components/ui/PageLayout';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import HoverGlowButton from '../components/ui/HoverGlowButton';
 
 const formSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -51,8 +54,9 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="premium-panel max-w-md w-full p-8 rounded-3xl border border-white/10">
+    <PageLayout contentClassName="max-w-3xl">
+      <div className="flex min-h-[60vh] items-center justify-center py-10">
+      <SurfaceCard interactive className="premium-panel max-w-md w-full p-8 rounded-3xl border border-white/10">
         <h1 className="font-pixel text-3xl text-white mb-2">{isResetMode ? 'SET NEW PASSWORD' : 'RESET PASSWORD'}</h1>
         <p className="text-zinc-400 text-sm mb-6">
           {isResetMode ? 'Enter your new password below.' : 'Enter your account email to receive reset instructions.'}
@@ -69,9 +73,9 @@ const ResetPassword = () => {
               {errors.password ? <p className="text-xs text-red-400 mt-1">{errors.password.message}</p> : null}
             </div>
           )}
-          <button disabled={busy} type="submit" className="w-full btn-gradient py-3 rounded-2xl disabled:opacity-60">
+          <HoverGlowButton type="submit" disabled={busy} className="w-full">
             {busy ? 'Please wait...' : isResetMode ? 'Update Password' : 'Send Reset Link'}
-          </button>
+          </HoverGlowButton>
         </form>
         {isResetMode ? (
           <button type="button" onClick={() => setIsResetMode(false)} className="text-xs text-zinc-400 mt-4 hover:text-zinc-200">
@@ -81,8 +85,9 @@ const ResetPassword = () => {
         <div className="mt-6 text-xs text-zinc-500">
           <Link to="/login" className="hover:text-zinc-300">Back to login</Link>
         </div>
+      </SurfaceCard>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

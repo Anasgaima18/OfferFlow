@@ -2,8 +2,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Load New Relic as early as possible after env is available.
-import newrelic from 'newrelic';
+import apm from './observability/apm';
 
 // Validate environment variables immediately (env singleton is created on import)
 import { config } from './config/env';
@@ -179,14 +178,14 @@ const oauthJanitorHandle = startOAuthJanitor();
 
 // --- R1: Global process error handlers ---
 process.on('unhandledRejection', (reason: unknown) => {
-    newrelic.noticeError(new Error('Unhandled Rejection'), {
+    apm.noticeError(new Error('Unhandled Rejection'), {
         reason: reason instanceof Error ? reason.message : String(reason),
     });
     Logger.error('Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (error: Error) => {
-    newrelic.noticeError(error);
+    apm.noticeError(error);
     Logger.error('Uncaught Exception:', error);
     process.exit(1);
 });

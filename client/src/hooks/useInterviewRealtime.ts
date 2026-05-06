@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { getRealtimeClient } from '../lib/supabaseRealtime';
 
 export const useInterviewRealtime = (
@@ -6,10 +6,12 @@ export const useInterviewRealtime = (
   onTranscriptUpdate: () => void,
   enabled = true,
 ) => {
+  const updateTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!interviewId || !enabled) return;
     let active = true;
-    let channelName = `transcript-messages-${interviewId}-${Date.now()}`;
+    const channelName = `transcript-messages-${interviewId}-${Date.now()}`;
 
     const run = async () => {
       try {
@@ -25,7 +27,14 @@ export const useInterviewRealtime = (
               filter: `interview_id=eq.${interviewId}`,
             },
             () => {
-              if (active) onTranscriptUpdate();
+              if (!active) return;
+              if (updateTimeoutRef.current !== null) {
+                window.clearTimeout(updateTimeoutRef.current);
+              }
+              // Debounce rapid transcript updates to prevent fetch storms.
+              updateTimeoutRef.current = window.setTimeout(() => {
+                if (active) onTranscriptUpdate();
+              }, 300);
             },
           )
           .subscribe();
@@ -42,6 +51,10 @@ export const useInterviewRealtime = (
 
     return () => {
       active = false;
+      if (updateTimeoutRef.current !== null) {
+        window.clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
       getRealtimeClient()
         .then((client) => {
           client.getChannels()

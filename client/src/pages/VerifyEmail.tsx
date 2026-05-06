@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import PageLayout from '../components/ui/PageLayout';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import HoverGlowButton from '../components/ui/HoverGlowButton';
 import { auth } from '../services/api';
 
 const VerifyEmail = () => {
@@ -29,18 +32,24 @@ const VerifyEmail = () => {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="premium-panel max-w-md w-full p-8 rounded-3xl border border-white/10 text-center">
-        <h1 className="font-pixel text-3xl text-white mb-4">VERIFY EMAIL</h1>
-        {isLoading ? <p className="text-zinc-400">Verifying your account...</p> : null}
-        {!isLoading && !token ? <p className="text-zinc-400">Missing verification token.</p> : null}
-        {!isLoading && token && !verified ? <p className="text-zinc-400">Could not verify this token.</p> : null}
-        {!isLoading && verified ? <p className="text-zinc-400">Your account is ready. Continue to login.</p> : null}
-        <Link to="/login" className="inline-block mt-6 text-secondary hover:underline">
-          Go to Login
-        </Link>
+    <PageLayout contentClassName="max-w-3xl">
+      <div className="flex min-h-[60vh] items-center justify-center py-10">
+        <SurfaceCard className="premium-panel w-full max-w-xl rounded-3xl border border-white/10 p-8 text-center" interactive>
+          <h1 className="mb-4 font-pixel text-3xl text-white">VERIFY EMAIL</h1>
+          {isLoading ? <p className="text-zinc-400">Verifying your account...</p> : null}
+          {!isLoading && !token ? <p className="text-zinc-400">Missing verification token.</p> : null}
+          {!isLoading && token && !verified ? <p className="text-zinc-400">Could not verify this token.</p> : null}
+          {!isLoading && verified ? <p className="text-zinc-300">Your account is ready. Continue to login.</p> : null}
+          <div className="mx-auto mt-6 max-w-52">
+            <Link to="/login">
+              <HoverGlowButton>
+                Go to Login
+              </HoverGlowButton>
+            </Link>
+          </div>
+        </SurfaceCard>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

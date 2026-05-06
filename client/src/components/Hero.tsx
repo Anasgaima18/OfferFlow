@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { m, useInView } from 'framer-motion';
-import { ArrowRight, Users, Star, Sparkles } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Sparkles, Star, Users, Zap } from 'lucide-react';
 import BlurFade from './ui/BlurFade';
-import { buttonStyles } from '../lib/buttonStyles';
+import HoverGlowButton from './ui/HoverGlowButton';
+import SurfaceCard from './ui/SurfaceCard';
 
 /* ─── Animated counter (counts from 0 → target on scroll-in) ─── */
 const AnimatedCounter: React.FC<{ target: number; suffix?: string; duration?: number }> = ({
@@ -71,7 +72,7 @@ const Hero: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative z-10 py-24 md:py-32">
         {/* ─── Top row: kicker + social proof ─── */}
         <BlurFade delay={0.04}>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="section-kicker">
               <Sparkles className="w-3.5 h-3.5 text-secondary" />
               AI-Powered Interview Prep
@@ -92,7 +93,7 @@ const Hero: React.FC = () => {
         </BlurFade>
 
         {/* ─── Hero grid: copy + terminal ─── */}
-        <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-12 lg:gap-16 items-center">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.06fr_0.94fr] lg:gap-14">
           {/* Left: copy */}
           <div>
             <BlurFade delay={0.08}>
@@ -110,23 +111,24 @@ const Hero: React.FC = () => {
             </BlurFade>
 
             <BlurFade delay={0.2}>
-              <div className="flex flex-col sm:flex-row gap-3 mb-10">
-                <Link to="/signup" className={buttonStyles({ size: 'lg' })}>
-                  <span className="relative z-10 inline-flex items-center gap-2">
+              <div className="mb-10 flex flex-col gap-3 sm:flex-row">
+                <Link to="/signup" className="block sm:w-[260px]">
+                  <HoverGlowButton className="w-full">
                     Start Free Interview <ArrowRight className="w-4 h-4" />
-                  </span>
+                  </HoverGlowButton>
                 </Link>
-                <Link to="/features" className={buttonStyles({ variant: 'secondary', size: 'lg' })}>
-                  <span className="relative z-10 inline-flex items-center gap-2">
-                    See How It Works
-                  </span>
+                <Link
+                  to="/features"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/4 px-6 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-zinc-200 transition-colors hover:border-white/30 hover:bg-white/8"
+                >
+                  See How It Works
                 </Link>
               </div>
             </BlurFade>
 
             {/* Trust strip */}
             <BlurFade delay={0.28}>
-              <p className="text-zinc-600 text-xs font-mono uppercase tracking-widest mb-3">
+              <p className="mb-3 text-[11px] font-mono uppercase tracking-[0.16em] text-zinc-500">
                 Engineers from these companies trust OfferFlow
               </p>
               <div className="trust-strip">
@@ -140,34 +142,55 @@ const Hero: React.FC = () => {
           {/* Right: interactive terminal preview */}
           <BlurFade delay={0.16}>
             <m.div
-              className="hero-terminal-enhanced"
+              className="space-y-4"
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.7, ease: 'easeOut' }}
             >
-              <div className="hero-terminal-dots">
-                <span className="bg-red-500/70" />
-                <span className="bg-yellow-500/70" />
-                <span className="bg-green-500/70" />
-                <span className="ml-auto text-[10px] font-mono text-zinc-600 tracking-wider uppercase">
-                  offerflow session
-                </span>
+              <div className="hero-terminal-enhanced">
+                <div className="hero-terminal-dots">
+                  <span className="bg-red-500/70" />
+                  <span className="bg-yellow-500/70" />
+                  <span className="bg-green-500/70" />
+                  <span className="ml-auto text-[10px] font-mono text-zinc-600 tracking-wider uppercase">
+                    offerflow session
+                  </span>
+                </div>
+                <div className="hero-terminal-body">
+                  {terminalLines.slice(0, visibleLines).map((line) => (
+                    <m.div
+                      key={line.id}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.35 }}
+                    >
+                      <span className={`term-${line.type}`}>{line.text}</span>
+                    </m.div>
+                  ))}
+                  {visibleLines < terminalLines.length && (
+                    <span className="typewriter-cursor text-secondary">▋</span>
+                  )}
+                </div>
               </div>
-              <div className="hero-terminal-body">
-                {terminalLines.slice(0, visibleLines).map((line) => (
-                  <m.div
-                    key={line.id}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.35 }}
-                  >
-                    <span className={`term-${line.type}`}>{line.text}</span>
-                  </m.div>
-                ))}
-                {visibleLines < terminalLines.length && (
-                  <span className="typewriter-cursor text-secondary">▋</span>
-                )}
-              </div>
+
+              <SurfaceCard interactive className="premium-panel p-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                    <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
+                      <ShieldCheck size={14} />
+                    </div>
+                    <div className="text-sm font-mono text-zinc-400">Session realism</div>
+                    <div className="mt-1 font-pixel text-3xl text-white tracking-[0.05em]">92%</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                    <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                      <Zap size={14} />
+                    </div>
+                    <div className="text-sm font-mono text-zinc-400">Avg response latency</div>
+                    <div className="mt-1 font-pixel text-3xl text-white tracking-[0.05em]">1.8s</div>
+                  </div>
+                </div>
+              </SurfaceCard>
             </m.div>
           </BlurFade>
         </div>

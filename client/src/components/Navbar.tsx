@@ -61,7 +61,7 @@ const Navbar: React.FC = () => {
           boxShadow: isScrolled ? '0 16px 60px rgba(0,0,0,0.35)' : 'none',
         }}
         className={cn(
-          'max-w-7xl mx-auto rounded-[1.6rem] border backdrop-blur-2xl',
+          'max-w-7xl mx-auto rounded-[1.6rem] border backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)]',
           isScrolled ? 'bg-black/65' : 'bg-black/30',
         )}>
       <div className="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
@@ -82,7 +82,7 @@ const Navbar: React.FC = () => {
         </Link>
 
         {/* Desktop Menu */}
-        <div className="hidden md:flex items-center gap-2 rounded-full border border-white/6 bg-white/4 px-2 py-2">
+        <div className="hidden md:flex items-center gap-2 rounded-full border border-white/10 bg-white/4 px-2 py-2">
           {navLinks.map((link) => (
             <m.div key={link.to} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Link
@@ -91,7 +91,7 @@ const Navbar: React.FC = () => {
                   'block px-4 py-2 rounded-full text-sm font-medium relative',
                   location.pathname === link.to
                     ? 'bg-white text-black shadow-[0_12px_30px_rgba(255,255,255,0.15)]'
-                    : 'text-gray-400 hover:text-white hover:bg-white/6',
+                    : 'text-gray-400 hover:text-white hover:bg-white/8',
                 )}
               >
                 {link.label}

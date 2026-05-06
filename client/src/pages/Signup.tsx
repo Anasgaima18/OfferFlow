@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { toast } from 'sonner';
 import { useFadeIn, useScaleIn, useStaggerFadeIn } from '../hooks/useAnimations';
 import { signupSchema, type SignupFormData } from '../lib/authSchema';
+import HoverGlowButton from '../components/ui/HoverGlowButton';
 
 const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -69,7 +70,6 @@ const Signup = () => {
       } else {
         toast.error(errorData?.message || 'Failed to create account');
       }
-      console.error('Signup error:', err);
     }
   };
 
@@ -252,11 +252,12 @@ const Signup = () => {
                 {errors.password && <p id="signup-password-error" className="mt-1.5 text-xs text-red-400 font-mono" role="alert">{errors.password.message}</p>}
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="auth-field w-full btn-gradient py-3 rounded-2xl font-mono text-sm mt-6 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <div className="auth-field mt-6">
+                <HoverGlowButton
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
                 {isSubmitting ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
@@ -265,7 +266,8 @@ const Signup = () => {
                 ) : (
                   'Create Account'
                 )}
-              </button>
+                </HoverGlowButton>
+              </div>
             </form>
 
             <div className="auth-field mt-6 flex items-center justify-between gap-3 text-xs font-mono text-gray-500">

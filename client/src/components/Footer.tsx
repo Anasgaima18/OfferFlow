@@ -15,7 +15,7 @@ const Footer: React.FC = () => {
     return (
         <footer className="relative border-t border-white/10 py-16 overflow-hidden">
             <div className="max-w-7xl mx-auto px-4">
-                <SurfaceCard className="mb-12 p-8 md:p-10 border-white/10 bg-white/4">
+                <SurfaceCard className="mb-12 p-8 md:p-10 border-white/10 bg-white/4" interactive>
                     <div className="grid lg:grid-cols-[1fr_auto] gap-6 items-center">
                         <div>
                             <div className="section-kicker mb-4">OfferFlow Premium Prep</div>

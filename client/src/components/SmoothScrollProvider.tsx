@@ -29,12 +29,14 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
     lenisRef.current = lenis;
 
     const onRaf = (time: number) => {
-      lenis.raf(time);
+      // GSAP ticker time is in seconds; Lenis expects milliseconds.
+      lenis.raf(time * 1000);
       const limit = lenis.limit - window.innerHeight;
       const progress = limit > 0 ? lenis.scroll / limit : 0;
       document.documentElement.style.setProperty('--scroll-progress', String(Math.max(0, Math.min(progress, 1))));
     };
 
+    gsap.ticker.lagSmoothing(0);
     gsap.ticker.add(onRaf);
 
     return () => {

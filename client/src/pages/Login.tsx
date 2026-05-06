@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { toast } from 'sonner';
 import { useFadeIn, useScaleIn, useStaggerFadeIn } from '../hooks/useAnimations';
 import { loginSchema, type LoginFormData } from '../lib/authSchema';
+import HoverGlowButton from '../components/ui/HoverGlowButton';
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -58,7 +59,6 @@ const Login = () => {
       } else {
         toast.error(errorData?.message || 'Failed to login');
       }
-      console.error('Login error:', err);
     }
   };
 
@@ -218,11 +218,12 @@ const Login = () => {
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="auth-field w-full btn-gradient py-3 rounded-2xl font-mono text-sm mt-6 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <div className="auth-field mt-6">
+                <HoverGlowButton
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
                 {isSubmitting ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
@@ -231,7 +232,8 @@ const Login = () => {
                 ) : (
                   'Sign In'
                 )}
-              </button>
+                </HoverGlowButton>
+              </div>
             </form>
 
             <div className="auth-field mt-6 flex items-center justify-between gap-3 text-xs font-mono text-gray-500">

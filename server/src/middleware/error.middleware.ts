@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import newrelic from 'newrelic';
+import apm from '../observability/apm';
 import { AppError } from '../utils/appError';
 import { Logger } from '../utils/logger';
 import { config } from '../config/env';
@@ -17,7 +17,7 @@ export const globalErrorHandler = (
     // Log the error
     Logger.error(`[${req.method}] ${req.url} - ${err.message}`, err);
 
-    newrelic.recordCustomEvent('ApiError', {
+    apm.recordCustomEvent('ApiError', {
         method: req.method,
         path: req.originalUrl,
         statusCode,
@@ -26,7 +26,7 @@ export const globalErrorHandler = (
     });
 
     if (statusCode >= 500 || !isAppError) {
-        newrelic.noticeError(err, {
+        apm.noticeError(err, {
             method: req.method,
             path: req.originalUrl,
             statusCode,

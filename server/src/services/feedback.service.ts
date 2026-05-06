@@ -1,6 +1,6 @@
 import { InterviewService } from './interview.service';
 import { SarvamService } from './sarvam.service';
-import newrelic from 'newrelic';
+import apm from '../observability/apm';
 import { Logger } from '../utils/logger';
 import { z } from 'zod';
 
@@ -28,7 +28,7 @@ export class FeedbackService {
 
         if (!transcript || transcript.length === 0) {
             Logger.warn(`No transcript found for interview ${interviewId}, returning default feedback`);
-            newrelic.recordCustomEvent('InterviewFeedbackFallback', {
+            apm.recordCustomEvent('InterviewFeedbackFallback', {
                 interviewId,
                 reason: 'empty-transcript',
             });
@@ -58,7 +58,7 @@ export class FeedbackService {
                 { role: 'user', content: `Analyze this interview transcript:\n\n${conversationText}` }
             ];
 
-            const aiResponse = await newrelic.startSegment('FeedbackService/generateResponse', true, async () => {
+            const aiResponse = await apm.startSegment('FeedbackService/generateResponse', true, async () => {
                 return this.sarvamService.generateResponse(analysisPrompt);
             });
 
@@ -71,7 +71,7 @@ export class FeedbackService {
                     status: 'completed'
                 });
 
-                newrelic.recordCustomEvent('InterviewFeedbackGenerated', {
+                apm.recordCustomEvent('InterviewFeedbackGenerated', {
                     interviewId,
                     overallScore: parsed.overallScore,
                     strengthsCount: parsed.strengths.length,
@@ -82,17 +82,17 @@ export class FeedbackService {
                 return parsed;
             }
 
-            newrelic.recordCustomEvent('InterviewFeedbackFallback', {
+            apm.recordCustomEvent('InterviewFeedbackFallback', {
                 interviewId,
                 reason: 'parse-failed',
             });
         } catch (err) {
             Logger.error('Failed to generate AI feedback, using default', err);
-            newrelic.noticeError(err instanceof Error ? err : new Error(String(err)), {
+            apm.noticeError(err instanceof Error ? err : new Error(String(err)), {
                 interviewId,
                 stage: 'feedback-generation',
             });
-            newrelic.recordCustomEvent('InterviewFeedbackFallback', {
+            apm.recordCustomEvent('InterviewFeedbackFallback', {
                 interviewId,
                 reason: 'exception',
             });

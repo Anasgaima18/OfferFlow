@@ -49,13 +49,13 @@ export default function PageHero({ kicker, title, description, meta = [], action
     <section ref={sectionRef} className="mb-14">
       <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-8 items-start">
         <div>
-          <div ref={kickerRef} className="section-kicker mb-5">{kicker}</div>
+          <div ref={kickerRef} className="section-kicker mb-5 shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">{kicker}</div>
           <h1 ref={titleRef} className="font-pixel text-5xl md:text-6xl tracking-[0.05em] text-white mb-5">{title}</h1>
           <p ref={descRef} className="text-zinc-400 font-mono leading-relaxed max-w-2xl text-sm md:text-base">{description}</p>
           {actions ? <div ref={actionsRef} className="mt-8 flex flex-wrap gap-3">{actions}</div> : <div ref={actionsRef} className="sr-only" aria-hidden />}
         </div>
         <div ref={asideRef}>
-          <SurfaceCard className="premium-panel p-6 md:p-8 border-white/10">
+          <SurfaceCard className="premium-panel p-6 md:p-8 border-white/10" interactive>
             {aside}
             {meta.length > 0 ? (
               <div className="grid sm:grid-cols-3 gap-4 mt-6">

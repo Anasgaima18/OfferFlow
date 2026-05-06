@@ -7,6 +7,8 @@ import StatTile from '../components/ui/StatTile';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import DataErrorAlert from '../components/ui/DataErrorAlert';
 import SpinnerBlock from '../components/ui/SpinnerBlock';
+import SwitchWithIcon from '../components/ui/SwitchWithIcon';
+import FeedbackTextarea21 from '../components/ui/FeedbackTextarea21';
 import { useAuth } from '../hooks/useAuth';
 import { useInterviewStatsQuery } from '../hooks/useInterviewQueries';
 import { buttonStyles } from '../lib/buttonStyles';
@@ -175,6 +177,23 @@ const Profile = () => {
             >
               Delete Account
             </button>
+          </div>
+        </SurfaceCard>
+      </BlurFade>
+
+      <BlurFade delay={0.14}>
+        <SurfaceCard className="premium-panel mt-8 p-8">
+          <h3 className="font-pixel text-2xl tracking-[0.08em] text-white">EXPERIENCE CONTROLS</h3>
+          <p className="mt-3 text-sm font-mono leading-relaxed text-zinc-400">
+            Added with 21st.dev-inspired patterns to make the settings surface feel more interactive and polished.
+          </p>
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+              <SwitchWithIcon />
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+              <FeedbackTextarea21 />
+            </div>
           </div>
         </SurfaceCard>
       </BlurFade>

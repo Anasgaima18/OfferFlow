@@ -2,7 +2,7 @@ import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
 import { URL } from 'url';
-import newrelic from 'newrelic';
+import apm from '../observability/apm';
 import * as Sentry from '@sentry/node';
 import { Logger } from '../utils/logger';
 import { SarvamService } from '../services/sarvam.service';
@@ -106,7 +106,7 @@ export function setupWebSocket(
         ws.once('close', releaseOnce);
 
         Logger.info(`[ws] connection from ${clientIp} — slot ${slot.current}/${slot.cap}`);
-        newrelic.recordCustomEvent('InterviewWsConnectionAttempt', {
+        apm.recordCustomEvent('InterviewWsConnectionAttempt', {
             path: req.url ?? '/api/v1/interviews/ws',
             ip: clientIp,
         });
@@ -138,7 +138,7 @@ export function setupWebSocket(
         if (!userId) return;
 
         safeSendJson(ws, { type: 'auth_success' }, 'control');
-        newrelic.recordCustomEvent('InterviewWsConnectionEstablished', {
+        apm.recordCustomEvent('InterviewWsConnectionEstablished', {
             userId,
             interviewId: interviewId ?? 'none',
         });
@@ -190,14 +190,14 @@ async function authenticateClient(ws: WebSocket, earlyQueue: WebSocket.RawData[]
             }
             const decoded = jwt.verify(authData.token, config.JWT_SECRET) as { id: string };
             Logger.info(`WebSocket authenticated for user: ${decoded.id}`);
-            newrelic.setUserID(decoded.id);
-            newrelic.addCustomAttribute('ws.userId', decoded.id);
-            newrelic.recordCustomEvent('InterviewWsAuthenticated', { userId: decoded.id });
+            apm.setUserID(decoded.id);
+            apm.addCustomAttribute('ws.userId', decoded.id);
+            apm.recordCustomEvent('InterviewWsAuthenticated', { userId: decoded.id });
             resolveAuth(decoded.id);
         } catch (err) {
             Logger.error('WebSocket auth failed', err);
             Sentry.captureException(err, { tags: { stage: 'ws-authentication' } });
-            newrelic.recordCustomEvent('InterviewWsAuthFailure', {
+            apm.recordCustomEvent('InterviewWsAuthFailure', {
                 reason: err instanceof jwt.TokenExpiredError ? 'token-expired' : 'invalid-token',
             });
             const message = err instanceof jwt.TokenExpiredError ? 'Token expired' : 'Invalid or expired token';
@@ -263,7 +263,7 @@ async function initializeInterview(
             interviewType = interviewRecord.type;
             await interviewService.updateInterview(interviewId, { status: 'in-progress' }, userId);
             Logger.info(`Interview ${interviewId} (${interviewType}) status set to in-progress`);
-            newrelic.recordCustomEvent('InterviewWsSessionStarted', { interviewId, userId, interviewType });
+            apm.recordCustomEvent('InterviewWsSessionStarted', { interviewId, userId, interviewType });
         } catch (e) {
             Logger.warn(`Could not load/update interview: ${(e as Error).message}`);
             Sentry.captureException(e, { tags: { stage: 'ws-initialize-interview', interviewId: interviewId ?? 'none', userId } });
@@ -480,7 +480,7 @@ class InterviewSession {
             try {
                 await this.interviewService.updateInterview(this.interviewId, { status: 'completed' }, this.userId);
                 Logger.info(`Interview ${this.interviewId} completed (${Math.round((Date.now() - this.startedAt) / 60_000)} min)`);
-                newrelic.recordCustomEvent('InterviewWsSessionEnded', {
+                apm.recordCustomEvent('InterviewWsSessionEnded', {
                     interviewId: this.interviewId,
                     userId: this.userId,
                     durationMs: Date.now() - this.startedAt,
@@ -633,7 +633,7 @@ class InterviewSession {
             Sentry.captureException(err, {
                 tags: { stage: 'ws-ai-processing', interviewId: this.interviewId ?? 'none', userId: this.userId },
             });
-            newrelic.recordCustomEvent('InterviewWsAiFailure', {
+            apm.recordCustomEvent('InterviewWsAiFailure', {
                 interviewId: this.interviewId ?? 'none',
                 userId: this.userId,
             });
@@ -679,7 +679,7 @@ class InterviewSession {
                     Sentry.captureException(error, {
                         tags: { stage: 'ws-sarvam-stream', interviewId: this.interviewId ?? 'none', userId: this.userId },
                     });
-                    newrelic.recordCustomEvent('InterviewWsSttError', {
+                    apm.recordCustomEvent('InterviewWsSttError', {
                         interviewId: this.interviewId ?? 'none',
                         userId: this.userId,
                     });
@@ -714,7 +714,7 @@ class InterviewSession {
                 } else {
                     this.sarvamFailed = true;
                     Logger.error('Sarvam STT max reconnect attempts reached');
-                    newrelic.recordCustomEvent('InterviewWsSttMaxReconnectReached', {
+                    apm.recordCustomEvent('InterviewWsSttMaxReconnectReached', {
                         interviewId: this.interviewId ?? 'none',
                         userId: this.userId,
                     });

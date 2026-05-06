@@ -7,6 +7,7 @@ import BlurFade from '../components/ui/BlurFade';
 import PageHero from '../components/ui/PageHero';
 import PageLayout from '../components/ui/PageLayout';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import HoverGlowButton from '../components/ui/HoverGlowButton';
 import { interviews } from '../services/api';
 import { InterviewType, IInterview } from '../types';
 import { InterviewLanguage, InterviewRole, saveInterviewSessionConfig } from '../lib/interviewSessionConfig';
@@ -114,6 +115,8 @@ const InterviewSetup = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const lastMeterUpdateAtRef = useRef(0);
+  const lastMeterLevelRef = useRef(0);
 
   // Microphone connection
   const connectMicrophone = async () => {
@@ -143,7 +146,16 @@ const InterviewSetup = () => {
       const updateLevel = () => {
         analyser.getByteFrequencyData(dataArray);
         const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        dispatch({ type: 'patch', value: { micLevel: (avg / 255) * 100 } });
+        const nextLevel = (avg / 255) * 100;
+        const now = performance.now();
+
+        // Avoid dispatching state updates on every animation frame.
+        // This keeps setup animations and page scrolling smooth.
+        if (now - lastMeterUpdateAtRef.current >= 100 && Math.abs(nextLevel - lastMeterLevelRef.current) >= 1.5) {
+          lastMeterUpdateAtRef.current = now;
+          lastMeterLevelRef.current = nextLevel;
+          dispatch({ type: 'patch', value: { micLevel: nextLevel } });
+        }
         animationRef.current = requestAnimationFrame(updateLevel);
       };
       updateLevel();
@@ -367,10 +379,10 @@ const InterviewSetup = () => {
               <h3 className="font-pixel text-2xl tracking-[0.08em] text-white">LAUNCH</h3>
               <p className="mt-3 text-sm font-mono leading-relaxed text-zinc-400">You can exit anytime, retry as often as needed, and review every completed session after the run.</p>
               <div className="mt-6">
-                <Button onClick={handleStart} variant="primary" size="lg" className="w-full justify-center" disabled={!micConnected || isCreating}>
+                <HoverGlowButton onClick={handleStart} disabled={!micConnected || isCreating}>
                   {isCreating ? 'Creating Session...' : 'Start Interview'}
                   <ChevronRight size={18} />
-                </Button>
+                </HoverGlowButton>
                 {!micConnected ? <p className="mt-3 text-center text-xs font-mono uppercase tracking-[0.18em] text-zinc-500">Connect your microphone to continue.</p> : null}
               </div>
             </SurfaceCard>

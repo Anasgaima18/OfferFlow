@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import newrelic from 'newrelic';
+import apm from '../observability/apm';
 import { AppError } from '../utils/appError';
 import { catchAsync } from '../utils/catchAsync';
 import { AuthService } from '../services/auth.service';
@@ -22,7 +22,7 @@ export const protect = (authService: AuthService) => catchAsync(async (req: Requ
     }
 
     if (!token) {
-        newrelic.recordCustomEvent('AuthFailure', {
+        apm.recordCustomEvent('AuthFailure', {
             reason: 'missing-token',
             path: req.originalUrl,
             method: req.method,
@@ -43,14 +43,14 @@ export const protect = (authService: AuthService) => catchAsync(async (req: Requ
                 decoded = { id: supabaseDecoded.sub };
             } catch (supabaseTokenError) {
                 if (supabaseTokenError instanceof jwt.TokenExpiredError) {
-                    newrelic.recordCustomEvent('AuthFailure', {
+                    apm.recordCustomEvent('AuthFailure', {
                         reason: 'token-expired',
                         path: req.originalUrl,
                         method: req.method,
                     });
                     return next(new AppError('Your token has expired. Please log in again.', 401));
                 }
-                newrelic.recordCustomEvent('AuthFailure', {
+                apm.recordCustomEvent('AuthFailure', {
                     reason: 'invalid-token',
                     path: req.originalUrl,
                     method: req.method,
@@ -59,14 +59,14 @@ export const protect = (authService: AuthService) => catchAsync(async (req: Requ
             }
         } else {
             if (appTokenError instanceof jwt.TokenExpiredError) {
-                newrelic.recordCustomEvent('AuthFailure', {
+                apm.recordCustomEvent('AuthFailure', {
                     reason: 'token-expired',
                     path: req.originalUrl,
                     method: req.method,
                 });
                 return next(new AppError('Your token has expired. Please log in again.', 401));
             }
-            newrelic.recordCustomEvent('AuthFailure', {
+            apm.recordCustomEvent('AuthFailure', {
                 reason: 'invalid-token',
                 path: req.originalUrl,
                 method: req.method,
@@ -80,7 +80,7 @@ export const protect = (authService: AuthService) => catchAsync(async (req: Requ
     if (!currentUser) {
         const fetched = await authService.getUserById(decoded.id);
         if (!fetched) {
-            newrelic.recordCustomEvent('AuthFailure', {
+            apm.recordCustomEvent('AuthFailure', {
                 reason: 'user-not-found',
                 path: req.originalUrl,
                 method: req.method,
@@ -93,12 +93,12 @@ export const protect = (authService: AuthService) => catchAsync(async (req: Requ
     }
 
     req.user = currentUser;
-    newrelic.setUserID(currentUser.id);
-    newrelic.addCustomAttributes({
+    apm.setUserID(currentUser.id);
+    apm.addCustomAttributes({
         userId: currentUser.id,
         authProvider: currentUser.auth_provider ?? 'local',
     });
-    newrelic.recordCustomEvent('AuthSuccess', {
+    apm.recordCustomEvent('AuthSuccess', {
         userId: currentUser.id,
         path: req.originalUrl,
         method: req.method,

@@ -1,5 +1,5 @@
 import { AppError } from '../utils/appError';
-import newrelic from 'newrelic';
+import apm from '../observability/apm';
 import { IInterview, CreateInterviewInput, InterviewType, ITranscriptMessage } from '../models/Interview';
 import { InterviewRepository } from '../repositories/InterviewRepository';
 
@@ -8,7 +8,7 @@ export class InterviewService {
 
     // Get all interviews for a user
     async getAllInterviews(userId: string): Promise<IInterview[]> {
-        return await newrelic.startSegment('InterviewService/getAllInterviews', true, async () => {
+        return await apm.startSegment('InterviewService/getAllInterviews', true, async () => {
             return this.interviewRepository.findAllByUserId(userId);
         });
     }
@@ -21,11 +21,11 @@ export class InterviewService {
             throw new AppError('Invalid interview type', 400);
         }
 
-        const interview = await newrelic.startSegment('InterviewService/createInterview', true, async () => {
+        const interview = await apm.startSegment('InterviewService/createInterview', true, async () => {
             return this.interviewRepository.create(input);
         });
 
-        newrelic.recordCustomEvent('InterviewCreated', {
+        apm.recordCustomEvent('InterviewCreated', {
             interviewId: interview.id,
             userId: input.user_id,
             type: input.type,
@@ -48,12 +48,12 @@ export class InterviewService {
         if (updates.status !== undefined) updateData.status = updates.status;
         updateData.updated_at = new Date().toISOString();
 
-        const interview = await newrelic.startSegment('InterviewService/updateInterview', true, async () => {
+        const interview = await apm.startSegment('InterviewService/updateInterview', true, async () => {
             return this.interviewRepository.update(id, updateData, requestingUserId);
         });
         const feedbackText = updates.feedback ?? interview.feedback;
 
-        newrelic.recordCustomEvent('InterviewUpdated', {
+        apm.recordCustomEvent('InterviewUpdated', {
             interviewId: id,
             status: updates.status ?? interview.status,
             score: updates.score ?? interview.score ?? 0,
@@ -77,7 +77,7 @@ export class InterviewService {
             requestingUserId,
         );
 
-        newrelic.recordCustomEvent('InterviewTranscriptMessage', {
+        apm.recordCustomEvent('InterviewTranscriptMessage', {
             interviewId,
             role,
             contentLength: content.length,
@@ -141,7 +141,7 @@ export class InterviewService {
 
     // Get leaderboard
     async getLeaderboard(limit: number = 10) {
-        const fullLeaderboard = await newrelic.startSegment('InterviewService/getLeaderboard', true, async () => {
+        const fullLeaderboard = await apm.startSegment('InterviewService/getLeaderboard', true, async () => {
             return this.interviewRepository.getLeaderboard();
         });
         type LeaderboardEntry = (typeof fullLeaderboard)[number];
