@@ -33,21 +33,46 @@ export const protect = (authService: AuthService) => catchAsync(async (req: Requ
     let decoded: { id: string };
     try {
         decoded = jwt.verify(token, config.JWT_SECRET) as { id: string };
-    } catch (err) {
-        if (err instanceof jwt.TokenExpiredError) {
+    } catch (appTokenError) {
+        if (config.SUPABASE_JWT_SECRET) {
+            try {
+                const supabaseDecoded = jwt.verify(token, config.SUPABASE_JWT_SECRET) as { sub?: string };
+                if (!supabaseDecoded.sub) {
+                    throw new AppError('Invalid Supabase token payload', 401);
+                }
+                decoded = { id: supabaseDecoded.sub };
+            } catch (supabaseTokenError) {
+                if (supabaseTokenError instanceof jwt.TokenExpiredError) {
+                    newrelic.recordCustomEvent('AuthFailure', {
+                        reason: 'token-expired',
+                        path: req.originalUrl,
+                        method: req.method,
+                    });
+                    return next(new AppError('Your token has expired. Please log in again.', 401));
+                }
+                newrelic.recordCustomEvent('AuthFailure', {
+                    reason: 'invalid-token',
+                    path: req.originalUrl,
+                    method: req.method,
+                });
+                return next(new AppError('Invalid token. Please log in again.', 401));
+            }
+        } else {
+            if (appTokenError instanceof jwt.TokenExpiredError) {
+                newrelic.recordCustomEvent('AuthFailure', {
+                    reason: 'token-expired',
+                    path: req.originalUrl,
+                    method: req.method,
+                });
+                return next(new AppError('Your token has expired. Please log in again.', 401));
+            }
             newrelic.recordCustomEvent('AuthFailure', {
-                reason: 'token-expired',
+                reason: 'invalid-token',
                 path: req.originalUrl,
                 method: req.method,
             });
-            return next(new AppError('Your token has expired. Please log in again.', 401));
+            return next(new AppError('Invalid token. Please log in again.', 401));
         }
-        newrelic.recordCustomEvent('AuthFailure', {
-            reason: 'invalid-token',
-            path: req.originalUrl,
-            method: req.method,
-        });
-        return next(new AppError('Invalid token. Please log in again.', 401));
     }
 
     let currentUser = getCachedUser(decoded.id);

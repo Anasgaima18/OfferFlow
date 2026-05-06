@@ -18,6 +18,22 @@ export const UpdateUserSchemaZod = z.object({
     avatar: z.string().url('Avatar must be a valid URL').or(z.literal('')).optional(),
 });
 
+export const ForgotPasswordSchemaZod = z.object({
+    email: z.string().email('Invalid email address'),
+});
+
+export const ResetPasswordSchemaZod = z.object({
+    token: z.string().min(1, 'Reset token is required'),
+    password: z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
+});
+
+export const VerifyEmailSchemaZod = z.object({
+    token: z.string().min(1, 'Verification token is required'),
+});
+
 export const OAuthProviderSchema = z.enum(['google', 'github']);
 
 export interface OAuthProfile {
@@ -42,6 +58,12 @@ export interface IUser {
     avatar: string | null;
     auth_provider?: OAuthProvider | 'local' | null;
     provider_id?: string | null;
+    email_verified?: boolean;
+    verification_token_hash?: string | null;
+    verification_token_expires_at?: string | null;
+    reset_token_hash?: string | null;
+    reset_token_expires_at?: string | null;
+    deleted_at?: string | null;
     created_at: string;
     updated_at: string;
 }

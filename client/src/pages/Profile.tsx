@@ -10,9 +10,11 @@ import SpinnerBlock from '../components/ui/SpinnerBlock';
 import { useAuth } from '../hooks/useAuth';
 import { useInterviewStatsQuery } from '../hooks/useInterviewQueries';
 import { buttonStyles } from '../lib/buttonStyles';
+import { auth } from '../services/api';
+import { toast } from 'sonner';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const statsQuery = useInterviewStatsQuery();
   const stats = statsQuery.data;
   const isLoading = statsQuery.isLoading;
@@ -20,6 +22,18 @@ const Profile = () => {
   const userName = user?.name || 'User';
   const userEmail = user?.email || '';
   const userAvatar = user?.avatar;
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm('Delete your account and associated data? This cannot be undone.');
+    if (!confirmed) return;
+    try {
+      await auth.deleteAccount();
+      toast.success('Your account has been deleted.');
+      logout();
+    } catch {
+      toast.error('Failed to delete account. Please try again.');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -152,6 +166,15 @@ const Profile = () => {
               </div>
             </div>
             <p className="mt-6 max-w-2xl text-sm font-mono leading-relaxed text-zinc-400">Review feedback is live today. Saved resume-driven interview personalization is still expanding, so the resume reviewer is the current source of truth for this workflow.</p>
+          </div>
+          <div className="mt-8 pt-6 border-t border-white/10">
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              className="text-xs uppercase tracking-[0.18em] text-red-400 hover:text-red-300"
+            >
+              Delete Account
+            </button>
           </div>
         </SurfaceCard>
       </BlurFade>

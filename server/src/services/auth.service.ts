@@ -8,6 +8,7 @@ import { config } from '../config/env';
 import { UserRepository } from '../repositories/UserRepository';
 import { Logger } from '../utils/logger';
 import { invalidateCachedUser } from '../utils/userCache';
+import { SupabaseMailerService } from './supabaseMailer.service';
 
 const oauthExchangeStore = new Map<string, { user: IUser; expiresAt: number }>();
 const OAUTH_CODE_TTL_MS = 5 * 60 * 1000;
@@ -68,10 +69,13 @@ type OAuthProviderConfig = {
 };
 
 export class AuthService {
-    constructor(private readonly userRepository: UserRepository) {}
+    constructor(
+        private readonly userRepository: UserRepository,
+        private readonly mailer: SupabaseMailerService = new SupabaseMailerService(),
+    ) {}
 
     // Sign Up
-    async signup(userData: UserInput): Promise<{ user: IUser; token: string }> {
+    async signup(userData: UserInput): Promise<{ user: IUser; requiresEmailVerification: boolean; verificationToken?: string }> {
         // Check if user already exists
         const existingUser = await this.userRepository.findByEmail(userData.email);
 
@@ -96,10 +100,17 @@ export class AuthService {
             throw new AppError('Failed to create user', 500);
         }
 
-        // Generate JWT token
-        const token = this.signToken(user.id);
-
-        return { user, token };
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = this.hashToken(rawToken);
+        const expiresAtIso = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        await this.userRepository.setEmailVerificationToken(user.id, tokenHash, expiresAtIso);
+        await this.mailer.sendAuthEmail({
+            to: user.email,
+            template: 'verify_email',
+            token: rawToken,
+        });
+        const verificationToken = config.NODE_ENV === 'development' ? rawToken : undefined;
+        return { user, requiresEmailVerification: true, verificationToken };
     }
 
     // Login
@@ -113,6 +124,12 @@ export class AuthService {
 
         if (!user || (!user.password)) {
             throw new AppError('Incorrect email or password', 401);
+        }
+        if (user.deleted_at) {
+            throw new AppError('Account not found', 404);
+        }
+        if (user.auth_provider === 'local' && !user.email_verified) {
+            throw new AppError('Please verify your email before logging in', 403);
         }
 
         // Verify password
@@ -145,6 +162,86 @@ export class AuthService {
         // F4: invalidate cached user so next request sees the fresh profile.
         invalidateCachedUser(userId);
         return updated;
+    }
+
+    async verifyEmail(token: string): Promise<IUser> {
+        const tokenHash = this.hashToken(token);
+        const user = await this.userRepository.verifyEmailWithToken(tokenHash);
+        if (!user) {
+            throw new AppError('Verification link is invalid or expired', 400);
+        }
+        return user;
+    }
+
+    async resendVerification(email: string): Promise<{ verificationToken?: string }> {
+        const user = await this.userRepository.findByEmail(email);
+        if (!user || user.deleted_at || user.auth_provider !== 'local') {
+            return {};
+        }
+        if (user.email_verified) {
+            return {};
+        }
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = this.hashToken(rawToken);
+        const expiresAtIso = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        await this.userRepository.setEmailVerificationToken(user.id, tokenHash, expiresAtIso);
+        await this.mailer.sendAuthEmail({
+            to: user.email,
+            template: 'verify_email',
+            token: rawToken,
+        });
+        return { verificationToken: config.NODE_ENV === 'development' ? rawToken : undefined };
+    }
+
+    async forgotPassword(email: string): Promise<{ resetToken?: string }> {
+        const user = await this.userRepository.findByEmail(email);
+        if (!user || user.deleted_at || user.auth_provider !== 'local') {
+            return {};
+        }
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = this.hashToken(rawToken);
+        const expiresAtIso = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+        await this.userRepository.setResetPasswordToken(email, tokenHash, expiresAtIso);
+        await this.mailer.sendAuthEmail({
+            to: user.email,
+            template: 'reset_password',
+            token: rawToken,
+        });
+        return { resetToken: config.NODE_ENV === 'development' ? rawToken : undefined };
+    }
+
+    async resetPassword(token: string, newPassword: string): Promise<void> {
+        const tokenHash = this.hashToken(token);
+        const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_COST);
+        const user = await this.userRepository.updatePasswordWithResetToken(tokenHash, hashedPassword);
+        if (!user) {
+            throw new AppError('Reset link is invalid or expired', 400);
+        }
+    }
+
+    async deleteAccount(userId: string): Promise<void> {
+        await this.userRepository.softDeleteUser(userId);
+        invalidateCachedUser(userId);
+    }
+
+    createSupabaseRealtimeToken(userId: string): { token: string; expiresIn: number } {
+        if (!config.SUPABASE_JWT_SECRET) {
+            throw new AppError('Supabase JWT integration is not configured', 503);
+        }
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = 5 * 60;
+        const token = jwt.sign(
+            {
+                sub: userId,
+                role: 'authenticated',
+                aud: 'authenticated',
+                iss: 'offerflow-server',
+                iat: now,
+                exp: now + expiresIn,
+            },
+            config.SUPABASE_JWT_SECRET,
+        );
+        return { token, expiresIn };
     }
 
     buildOAuthAuthorizationUrl(provider: OAuthProvider, requestBaseUrl?: string) {
@@ -321,5 +418,9 @@ export class AuthService {
         const code = crypto.randomUUID();
         oauthExchangeStore.set(code, { user, expiresAt: Date.now() + OAUTH_CODE_TTL_MS });
         return code;
+    }
+
+    private hashToken(value: string): string {
+        return crypto.createHash('sha256').update(value).digest('hex');
     }
 }

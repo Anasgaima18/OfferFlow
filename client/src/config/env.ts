@@ -39,6 +39,8 @@ const tracingOriginsFromEnv = parseCsv(import.meta.env.VITE_NEW_RELIC_DISTRIBUTE
 const env = {
     API_URL: apiUrl,
     WS_URL: wsUrl,
+    SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
+    SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
     NEW_RELIC_ENABLED: parseBoolean(import.meta.env.VITE_NEW_RELIC_ENABLED, false),
     NEW_RELIC_ACCOUNT_ID: import.meta.env.VITE_NEW_RELIC_ACCOUNT_ID || '',
     NEW_RELIC_TRUST_KEY: import.meta.env.VITE_NEW_RELIC_TRUST_KEY || '',

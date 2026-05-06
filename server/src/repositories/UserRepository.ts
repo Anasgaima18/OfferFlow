@@ -144,6 +144,86 @@ export class UserRepository {
         return this.mapUser(data);
     }
 
+    async setEmailVerificationToken(userId: string, tokenHash: string, expiresAtIso: string): Promise<void> {
+        const { error } = await supabaseAdmin
+            .from('users')
+            .update({
+                verification_token_hash: tokenHash,
+                verification_token_expires_at: expiresAtIso,
+            })
+            .eq('id', userId);
+        if (error) throw error;
+    }
+
+    async verifyEmailWithToken(tokenHash: string): Promise<IUser | null> {
+        const nowIso = new Date().toISOString();
+        const { data, error } = await supabaseAdmin
+            .from('users')
+            .update({
+                email_verified: true,
+                verification_token_hash: null,
+                verification_token_expires_at: null,
+            })
+            .eq('verification_token_hash', tokenHash)
+            .gte('verification_token_expires_at', nowIso)
+            .is('deleted_at', null)
+            .select(this.getSelectColumns({ includeUsername: true }))
+            .single();
+        if (error) {
+            if (error.code === 'PGRST116') return null;
+            throw error;
+        }
+        return this.mapUser(data);
+    }
+
+    async setResetPasswordToken(email: string, tokenHash: string, expiresAtIso: string): Promise<void> {
+        const { error } = await supabaseAdmin
+            .from('users')
+            .update({
+                reset_token_hash: tokenHash,
+                reset_token_expires_at: expiresAtIso,
+            })
+            .eq('email', email)
+            .is('deleted_at', null);
+        if (error) throw error;
+    }
+
+    async updatePasswordWithResetToken(tokenHash: string, passwordHash: string): Promise<IUser | null> {
+        const nowIso = new Date().toISOString();
+        const { data, error } = await supabaseAdmin
+            .from('users')
+            .update({
+                password: passwordHash,
+                reset_token_hash: null,
+                reset_token_expires_at: null,
+            })
+            .eq('reset_token_hash', tokenHash)
+            .gte('reset_token_expires_at', nowIso)
+            .is('deleted_at', null)
+            .select(this.getSelectColumns({ includeUsername: true }))
+            .single();
+        if (error) {
+            if (error.code === 'PGRST116') return null;
+            throw error;
+        }
+        return this.mapUser(data);
+    }
+
+    async softDeleteUser(userId: string): Promise<void> {
+        const nowIso = new Date().toISOString();
+        const { error } = await supabaseAdmin
+            .from('users')
+            .update({
+                deleted_at: nowIso,
+                verification_token_hash: null,
+                verification_token_expires_at: null,
+                reset_token_hash: null,
+                reset_token_expires_at: null,
+            })
+            .eq('id', userId);
+        if (error) throw error;
+    }
+
     private buildUsername(email: string, name: string) {
         const source = name || email.split('@')[0] || 'offerflow';
         return source.toLowerCase().replace(/[^a-z0-9_]+/g, '_').slice(0, 30);
@@ -231,7 +311,19 @@ export class UserRepository {
             columns.push('password');
         }
 
-        columns.push('avatar', 'auth_provider', 'provider_id', 'created_at', 'updated_at');
+        columns.push(
+            'avatar',
+            'auth_provider',
+            'provider_id',
+            'email_verified',
+            'verification_token_hash',
+            'verification_token_expires_at',
+            'reset_token_hash',
+            'reset_token_expires_at',
+            'deleted_at',
+            'created_at',
+            'updated_at'
+        );
         return columns.join(', ');
     }
 
@@ -256,6 +348,12 @@ export class UserRepository {
             avatar: typeof user.avatar === 'string' ? user.avatar : null,
             auth_provider: typeof user.auth_provider === 'string' ? user.auth_provider as IUser['auth_provider'] : null,
             provider_id: typeof user.provider_id === 'string' ? user.provider_id : null,
+            email_verified: typeof user.email_verified === 'boolean' ? user.email_verified : false,
+            verification_token_hash: typeof user.verification_token_hash === 'string' ? user.verification_token_hash : null,
+            verification_token_expires_at: typeof user.verification_token_expires_at === 'string' ? user.verification_token_expires_at : null,
+            reset_token_hash: typeof user.reset_token_hash === 'string' ? user.reset_token_hash : null,
+            reset_token_expires_at: typeof user.reset_token_expires_at === 'string' ? user.reset_token_expires_at : null,
+            deleted_at: typeof user.deleted_at === 'string' ? user.deleted_at : null,
             created_at: String(user.created_at),
             updated_at: String(user.updated_at),
         };

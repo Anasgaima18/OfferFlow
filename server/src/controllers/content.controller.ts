@@ -29,7 +29,7 @@ export class ContentController extends BaseController {
         if (!req.file) {
             throw new AppError('Resume file is required', 400);
         }
-        const result = await this.contentService.reviewResume(req.file);
+        const result = await this.contentService.reviewResume(req.file, req.user!.id);
         this.handleSuccess(res, result, 'Resume reviewed successfully');
     });
 }

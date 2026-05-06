@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import BlurFade from '../components/ui/BlurFade';
@@ -7,6 +7,7 @@ import PageLayout from '../components/ui/PageLayout';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import { Trophy, MessageSquare, Code2, Brain, ChevronRight, Star, TrendingUp, Download, RotateCcw } from 'lucide-react';
 import { interviews } from '../services/api';
+import { useInterviewRealtime } from '../hooks/useInterviewRealtime';
 
 interface ApiError {
   response?: {
@@ -73,68 +74,72 @@ const FeedbackReport = () => {
   });
   const { isLoading, error, feedback, interview } = state;
 
-  useEffect(() => {
-    const fetchFeedback = async () => {
-      if (!id) {
-        dispatch({ type: 'set', value: { isLoading: false, error: 'No interview ID provided.', feedback: null, interview: null } });
-        return;
+  const fetchFeedback = useCallback(async () => {
+    if (!id) {
+      dispatch({ type: 'set', value: { isLoading: false, error: 'No interview ID provided.', feedback: null, interview: null } });
+      return;
+    }
+
+    try {
+      const response = await interviews.getFeedback(id);
+      const data = response.data.data;
+      const apiFeedback = data.feedback;
+      
+      let parsedCategories = [];
+      if (apiFeedback.detailed_feedback) {
+          try {
+              parsedCategories = typeof apiFeedback.detailed_feedback === 'string' 
+                 ? JSON.parse(apiFeedback.detailed_feedback) 
+                 : apiFeedback.detailed_feedback;
+          } catch (e) {
+              console.error("Could not parse detailed feedback:", e);
+          }
       }
-
-      try {
-        const response = await interviews.getFeedback(id);
-        const data = response.data.data;
-        const apiFeedback = data.feedback;
-        
-        let parsedCategories = [];
-        if (apiFeedback.detailed_feedback) {
-            try {
-                parsedCategories = typeof apiFeedback.detailed_feedback === 'string' 
-                   ? JSON.parse(apiFeedback.detailed_feedback) 
-                   : apiFeedback.detailed_feedback;
-            } catch (e) {
-                console.error("Could not parse detailed feedback:", e);
-            }
-        }
-        
-        dispatch({
-          type: 'set',
-          value: {
-            isLoading: false,
-            error: null,
-            feedback: {
-              overallScore: apiFeedback.overall_score || 0,
-              summary: apiFeedback.summary || '',
-              strengths: apiFeedback.strengths || [],
-              improvements: apiFeedback.improvements || [],
-              categories: Array.isArray(parsedCategories) ? parsedCategories : [],
-            },
-            interview: data.interview as unknown as InterviewData,
+      
+      dispatch({
+        type: 'set',
+        value: {
+          isLoading: false,
+          error: null,
+          feedback: {
+            overallScore: apiFeedback.overall_score || 0,
+            summary: apiFeedback.summary || '',
+            strengths: apiFeedback.strengths || [],
+            improvements: apiFeedback.improvements || [],
+            categories: Array.isArray(parsedCategories) ? parsedCategories : [],
           },
-        });
-      } catch (err: unknown) {
-        const apiError = err as ApiError;
-        const status = apiError.response?.status;
+          interview: data.interview as unknown as InterviewData,
+        },
+      });
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      const status = apiError.response?.status;
 
-        dispatch({
-          type: 'set',
-          value: {
-            isLoading: false,
-            error:
-              status === 404
-                ? 'not-found'
-                : status === 409
-                  ? 'not-ready'
-                  : 'Failed to load feedback report. Please try again.',
-            feedback: null,
-            interview: null,
-          },
-        });
-        console.error('Failed to fetch feedback:', apiError);
-      }
-    };
-
-    fetchFeedback();
+      dispatch({
+        type: 'set',
+        value: {
+          isLoading: false,
+          error:
+            status === 404
+              ? 'not-found'
+              : status === 409
+                ? 'not-ready'
+                : 'Failed to load feedback report. Please try again.',
+          feedback: null,
+          interview: null,
+        },
+      });
+      console.error('Failed to fetch feedback:', apiError);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void fetchFeedback();
+  }, [fetchFeedback]);
+
+  useInterviewRealtime(id, () => {
+    void fetchFeedback();
+  }, Boolean(id));
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-emerald-400';

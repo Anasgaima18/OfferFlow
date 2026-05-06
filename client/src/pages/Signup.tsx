@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ArrowRight, Clock, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Target, User, Zap } from 'lucide-react';
 import { auth } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
@@ -11,7 +11,8 @@ import { signupSchema, type SignupFormData } from '../lib/authSchema';
 
 const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   const {
     register,
@@ -53,8 +54,13 @@ const Signup = () => {
         email: values.email,
         password: values.password,
       });
-      login(data.data.token, data.data.user);
-      toast.success('Account created successfully!');
+      const verificationToken = data.data.verificationToken;
+      toast.success('Account created. Please verify your email before login.');
+      if (verificationToken) {
+        navigate(`/verify-email?token=${encodeURIComponent(verificationToken)}`);
+      } else {
+        navigate('/login');
+      }
     } catch (error) {
       const err = error as { response?: { data?: { message?: string; errors?: { message: string }[] } } };
       const errorData = err.response?.data;

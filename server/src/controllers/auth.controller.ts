@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
-import { OAuthProviderSchema, UpdateUserSchemaZod, UserSchemaZod } from '../models/User';
+import {
+    ForgotPasswordSchemaZod,
+    OAuthProviderSchema,
+    ResetPasswordSchemaZod,
+    UpdateUserSchemaZod,
+    UserSchemaZod,
+    VerifyEmailSchemaZod,
+} from '../models/User';
 import { AppError } from '../utils/appError';
 import { BaseController } from './BaseController';
 import { catchAsync } from '../utils/catchAsync';
@@ -14,6 +21,10 @@ const LoginSchemaZod = z.object({
 
 const OAuthExchangeSchemaZod = z.object({
     code: z.string().min(1),
+});
+
+const ResendVerificationSchemaZod = z.object({
+    email: z.string().email('Invalid email address'),
 });
 
 export class AuthController extends BaseController {
@@ -81,5 +92,39 @@ export class AuthController extends BaseController {
         const { code } = OAuthExchangeSchemaZod.parse(req.body);
         const result = await this.authService.exchangeOAuthLoginCode(code);
         this.handleSuccess(res, result, 'OAuth login successful');
+    });
+
+    verifyEmail = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const { token } = VerifyEmailSchemaZod.parse(req.body);
+        const user = await this.authService.verifyEmail(token);
+        this.handleSuccess(res, { user }, 'Email verified successfully');
+    });
+
+    resendVerification = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const { email } = ResendVerificationSchemaZod.parse(req.body);
+        const result = await this.authService.resendVerification(email);
+        this.handleSuccess(res, result, 'If the account exists, a verification email has been sent');
+    });
+
+    forgotPassword = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const { email } = ForgotPasswordSchemaZod.parse(req.body);
+        const result = await this.authService.forgotPassword(email);
+        this.handleSuccess(res, result, 'If the account exists, reset instructions have been sent');
+    });
+
+    resetPassword = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const { token, password } = ResetPasswordSchemaZod.parse(req.body);
+        await this.authService.resetPassword(token, password);
+        this.handleSuccess(res, {}, 'Password reset successful');
+    });
+
+    deleteCurrentUser = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        await this.authService.deleteAccount(req.user!.id);
+        this.handleSuccess(res, {}, 'Account deleted successfully');
+    });
+
+    getSupabaseToken = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const token = this.authService.createSupabaseRealtimeToken(req.user!.id);
+        this.handleSuccess(res, token, 'Supabase token issued');
     });
 }

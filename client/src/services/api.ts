@@ -35,6 +35,16 @@ interface AuthResponse {
   message?: string;
 }
 
+interface SignupResponse {
+  success: boolean;
+  data: {
+    user: AuthResponse['data']['user'];
+    requiresEmailVerification: boolean;
+    verificationToken?: string;
+  };
+  message?: string;
+}
+
 export type OAuthProvider = 'google' | 'github';
 
 export interface QuestionBankItem {
@@ -64,6 +74,8 @@ export interface ResumeReviewResponse {
   feedback: string[];
   summary: string;
   extractedTextLength: number;
+  storedResumeUrl?: string | null;
+  storedResumePath?: string | null;
 }
 
 export interface InterviewStats {
@@ -195,13 +207,25 @@ export const auth = {
   login: (email: string, password?: string) =>
     api.post<AuthResponse>('/auth/login', { email, password }),
   signup: (userData: UserData) =>
-    api.post<AuthResponse>('/auth/signup', userData),
+    api.post<SignupResponse>('/auth/signup', userData),
   me: () =>
     api.get<ApiResponse<{ user: AuthResponse['data']['user'] }>>('/auth/me'),
   exchangeOAuth: (code: string) =>
     api.post<AuthResponse>('/auth/oauth/exchange', { code }),
   updateProfile: (userData: Partial<UserData>) =>
     api.patch<ApiResponse<{ user: AuthResponse['data']['user'] }>>('/auth/me', userData),
+  verifyEmail: (token: string) =>
+    api.post<ApiResponse<{ user: AuthResponse['data']['user'] }>>('/auth/verify-email', { token }),
+  resendVerification: (email: string) =>
+    api.post<ApiResponse<{ verificationToken?: string }>>('/auth/resend-verification', { email }),
+  forgotPassword: (email: string) =>
+    api.post<ApiResponse<{ resetToken?: string }>>('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    api.post<ApiResponse<Record<string, never>>>('/auth/reset-password', { token, password }),
+  deleteAccount: () =>
+    api.delete<ApiResponse<Record<string, never>>>('/auth/me'),
+  getSupabaseToken: () =>
+    api.get<ApiResponse<{ token: string; expiresIn: number }>>('/auth/supabase-token'),
   getOAuthStartUrl: (provider: OAuthProvider) => `${env.API_URL}/auth/oauth/${provider}/start`,
 };
 

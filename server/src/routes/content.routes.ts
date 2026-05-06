@@ -3,6 +3,7 @@ import multer from 'multer';
 import { ContentController } from '../controllers/content.controller';
 import { ContentService } from '../services/content.service';
 import { SarvamService } from '../services/sarvam.service';
+import { SupabaseStorageService } from '../services/supabaseStorage.service';
 import { protect } from '../middleware/auth.middleware';
 import { AuthService } from '../services/auth.service';
 import { UserRepository } from '../repositories/UserRepository';
@@ -12,7 +13,9 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 const userRepository = new UserRepository();
 const authService = new AuthService(userRepository);
-const contentController = new ContentController(new ContentService(new SarvamService()));
+const contentController = new ContentController(
+    new ContentService(new SarvamService(), new SupabaseStorageService())
+);
 
 router.get('/questions', protect(authService), contentController.getQuestions);
 router.get('/daily-challenge', protect(authService), contentController.getDailyChallenge);

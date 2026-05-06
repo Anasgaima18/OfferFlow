@@ -4,12 +4,15 @@ import { PDFParse } from 'pdf-parse';
 import { AppError } from '../utils/appError';
 import { questionBank, QuestionItem } from '../data/questionBank';
 import { SarvamService } from './sarvam.service';
+import { SupabaseStorageService } from './supabaseStorage.service';
 
 export interface ResumeReviewResult {
     score: number;
     feedback: string[];
     summary: string;
     extractedTextLength: number;
+    storedResumeUrl?: string | null;
+    storedResumePath?: string | null;
 }
 
 export interface QuestionQuery {
@@ -21,7 +24,10 @@ export interface QuestionQuery {
 }
 
 export class ContentService {
-    constructor(private readonly sarvamService: SarvamService) {}
+    constructor(
+        private readonly sarvamService: SarvamService,
+        private readonly storageService: SupabaseStorageService,
+    ) {}
 
     getQuestions(query: QuestionQuery) {
         const page = Math.max(1, query.page || 1);
@@ -59,7 +65,7 @@ export class ContentService {
         };
     }
 
-    async reviewResume(file: Express.Multer.File): Promise<ResumeReviewResult> {
+    async reviewResume(file: Express.Multer.File, userId: string): Promise<ResumeReviewResult> {
         if (!file) {
             throw new AppError('Resume file is required', 400);
         }
@@ -80,6 +86,8 @@ export class ContentService {
             },
         ];
 
+        const storedResume = await this.storageService.uploadResume(userId, file);
+
         try {
             const response = await this.sarvamService.generateResponse(prompt);
             const parsed = JSON.parse(response.match(/\{[\s\S]*\}/)?.[0] || response) as ResumeReviewResult;
@@ -89,6 +97,8 @@ export class ContentService {
                 summary: parsed.summary || 'Automated resume review completed.',
                 feedback,
                 extractedTextLength: text.length,
+                storedResumeUrl: storedResume?.signedUrl ?? null,
+                storedResumePath: storedResume?.objectPath ?? null,
             };
         } catch {
             return {
@@ -102,6 +112,8 @@ export class ContentService {
                     'Tailor the summary to the target engineering role and seniority.',
                 ],
                 extractedTextLength: text.length,
+                storedResumeUrl: storedResume?.signedUrl ?? null,
+                storedResumePath: storedResume?.objectPath ?? null,
             };
         }
     }

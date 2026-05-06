@@ -239,6 +239,7 @@ const Login = () => {
               <span className="inline-flex items-center gap-2 text-secondary">Continue <ArrowRight size={12} /></span>
             </div>
             <p className="text-center text-gray-500 text-xs mt-4">
+              <Link to="/reset-password" className="hover:text-gray-300 mr-3">Forgot password?</Link>
               <Link to="/privacy" className="hover:text-gray-300">Privacy Policy</Link>
             </p>
           </div>
